@@ -11,6 +11,7 @@ class HalfMayanVault2D(MayanVault):
     """
     One half of the 2D geometry of a Mayan vault.
     """
+    # TODO: Implement print out string representation method!
     def __init__(self, height, width, wall_height, wall_width, lintel_height):
         self.height = height
         self.width = width
