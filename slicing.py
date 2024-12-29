@@ -34,7 +34,7 @@ def create_slice_planes_by_block(vault: MayanVault, num_planes: int = 3) -> List
     return [Plane(point, [0.0, 1.0, 0.0]) for point in points]
 
 
-def create_slice_planes(vault: MayanVault, num_planes: int = 2) -> List[Line]:
+def create_slice_planes(vault: MayanVault, num_planes: int = 2, max_height: float = None) -> List[Line]:
     """
     Slices a vault horizontally, creating planar line slices.
 
@@ -48,7 +48,9 @@ def create_slice_planes(vault: MayanVault, num_planes: int = 2) -> List[Line]:
     """
     assert num_planes >= 2
 
-    max_height = vault.wall_height + vault.corbel_height
+    if not max_height:
+        max_height = vault.wall_height + vault.corbel_height
+
     planes = []
     for i in range(num_planes):
         factor = i / (num_planes - 1)
@@ -58,7 +60,7 @@ def create_slice_planes(vault: MayanVault, num_planes: int = 2) -> List[Line]:
     return planes
 
 
-def slice_vault(vault: MayanVault, num_slices: int = 3, tol: float = 1e-3) -> List[Line]:
+def slice_vault(vault: MayanVault, planes: List[Plane]) -> List[Line]:
     """
     Slices a vault horizontally, creating planar line slices.
 
@@ -72,9 +74,6 @@ def slice_vault(vault: MayanVault, num_slices: int = 3, tol: float = 1e-3) -> Li
 
     The lintel will remain as one block.
     """
-    assert num_slices >= 2
-
-    planes = create_slice_planes(vault, num_slices)
     lines = []
     polyline = vault.polyline()
     for plane in planes:
