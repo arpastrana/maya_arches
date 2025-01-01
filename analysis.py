@@ -1,4 +1,13 @@
+"""
+TODO: Generate slices per block (wall, corbel, lintel)
+TODO: Plot minmax solutions in the same figure.
+TODO: Add colored dots where thrust line touches intrados / extrados.
+TODO: Automate script to sweep over various geometric ratios
+TODO: Initialization strategy: minimize loadpath
+"""
 from functools import partial
+
+from math import fabs
 
 from slicing import slice_vault
 from slicing import create_slice_planes
@@ -7,6 +16,8 @@ from vaults import HalfMayanVault2D
 
 from compas.colors import Color
 from compas.geometry import add_vectors
+from compas.geometry import scale_vector
+from compas.geometry import Line
 from compas.utilities import pairwise
 
 from compas_plotters import Plotter
@@ -32,7 +43,6 @@ from jax import jacfwd
 import equinox as eqx
 import jax.numpy as jnp
 import jax.tree_util as jtu
-import numpy as np
 
 from scipy.optimize import minimize
 from scipy.optimize import NonlinearConstraint
@@ -48,23 +58,26 @@ from jax_cem.equilibrium import form_from_eqstate
 # ------------------------------------------------------------------------------
 
 height = 10.0
-width = 6.0
+width = 8.0
 
 wall_width = 2.0
 wall_height = 5.0
 lintel_height = 2.0
 
-num_slices = 15
+num_slices = 10
 
 block_density = 1.0
-px0 = -1.0
-py0 = -1.0
+px0 = -1.0  # initial guess for horizontal load at origin node (top)
 
 minmax_thrust = 1  # 0: minimize, 1: maximize
+xyz_tol = 1e-3  # origin node height tolerance on bounds for numerical stability (no zero length segments)
 tol = 1e-6
 maxiter = 100
 
-show_loads = 0  # False
+plot_loads = True  # False
+plot_thrusts = True
+forcescale = 0.5
+
 
 # ------------------------------------------------------------------------------
 # Create a Mayan vault
@@ -89,6 +102,11 @@ max_height = vault.height
 if minmax_thrust:
     max_height = vault.wall_height + vault.corbel_height
     # max_height = vault.height - vault.height / num_slices
+
+# NOTE: Hardcording max height for debugging
+max_height = vault.wall_height + vault.corbel_height
+print(f"Max height: {max_height}")
+
 planes = create_slice_planes(vault, num_slices, max_height)
 slices = slice_vault(vault, planes)
 
@@ -154,13 +172,16 @@ def calculate_slices_height_delta(slice_bottom, slice_top):
     return yt - yb
 
 
+# Apply loads to all nodes except the first
 for i in range(num_slices):
     key = node_keys_no_first[i]
 
+    # The second node carries the full lintel height
+    # TODO: Should the second note only carry half the height?
     if i == 0:
         slice_bot = slices_reversed[i]
         slice_top = slices_reversed[i]
-        height = vault.lintel_height
+        height = vault.lintel_height / 2.0
     else:
         slice_bot = slices_reversed[i]
         slice_top = slices_reversed[i - 1]
@@ -172,6 +193,13 @@ for i in range(num_slices):
     py = slice_area * block_density * -1.0
     load = [0.0, py, 0.0]
     topology.add_load(NodeLoad(key, load))
+
+# Apply load to the first node
+slice_bot = slices_reversed[0]
+slice_top = slices_reversed[0]
+height = vault.lintel_height / 2.0
+slice_area_0 = calculate_block_area(slice_bot, slice_top, height)
+py0 = slice_area_0 * block_density * -1.0
 
 topology.add_load(NodeLoad(node_key_first, [px0, py0, 0.0]))
 
@@ -265,12 +293,12 @@ def minimize_thrust_fn(params, model):
     # calculate equilibrium state
     eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
 
-    # extract reaction force vector
-    reaction_vector = eqstate.reactions[-1, :]
-    assert reaction_vector.shape == (3,)
+    # extract horizontal reaction force vector
+    reaction_vector = eqstate.reactions[-1, :1]
+    assert reaction_vector.shape == (1,)
 
     # calculate error
-    return jnp.sum(jnp.square(reaction_vector))
+    return jnp.sqrt(jnp.sum(jnp.square(reaction_vector)))
 
 
 def maximize_thrust_fn(params, model):
@@ -342,7 +370,7 @@ print(f"Gradient: {gradient}")
 
 print("\nGenerating box constraints")
 load_bounds = [(None, None)]
-xyz_bounds = [(vault.height - vault.lintel_height, vault.height)]
+xyz_bounds = [(vault.height - vault.lintel_height + xyz_tol, vault.height - xyz_tol)]
 bounds = load_bounds + xyz_bounds
 
 # ------------------------------------------------------------------------------
@@ -419,8 +447,11 @@ print()
 for edge in form_star.edges():
     print(f"{edge} Length: {form_star.edge_length(*edge):.2f}\tForce: {form_star.edge_force(edge):.2f}")
 
-
-print(f"\nVertical load sum: {sum(form_star.node_attribute(node, 'qy') for node in form_star.nodes()):.2f}")
+sw = sum(fabs(form_star.node_attribute(node, 'qy')) for node in form_star.nodes())
+thrust = fabs(result.fun)
+print(f"\nVertical load sum (SW): {sw:.2f}")
+print(f"\nThrust: {thrust:.4f}")
+print(f"\nRatio thrust / SW [%]: {100.0 * thrust / sw:.1f}")
 
 # ------------------------------------------------------------------------------
 # Visualization
@@ -429,13 +460,13 @@ print(f"\nVertical load sum: {sum(form_star.node_attribute(node, 'qy') for node 
 print("\nPlotting")
 plotter = Plotter(figsize=(8, 8))
 
-plotter.add(vault_polyline, linestyle="dashed", draw_points=False)
+plotter.add(vault_polyline, linestyle="solid", lineweight=2.0, draw_points=False)
 
 for slice in slices:
     plotter.add(
         slice,
         draw_as_segment=True,
-        linestyle="solid",
+        linestyle="dashed",
         color=Color.purple()
     )
 
@@ -446,10 +477,44 @@ plotter.add(
     form_star,
     show_nodes=True,
     show_reactions=False,
-    nodesize=0.5,
-    show_loads=show_loads,
+    nodesize=0.75,
+    show_loads=False,
+    edgewidth=(1, 3),
     sizepolicy="relative",
 )
 
+if plot_loads:
+    for node in form_star.nodes():
+        load_y = [0.0, form_star.node_attribute(node, 'qy'), 0.0]
+        xyz = form_star.node_coordinates(node)
+        line = Line(xyz, add_vectors(xyz, scale_vector(load_y, forcescale)))
+        plotter.add(
+            line,
+            draw_as_segment=True,
+            linestyle="solid",
+            color=Color.from_rgb255(0, 150, 10)
+        )
+
 plotter.zoom_extents()
+
+if plot_thrusts:
+    _nodes = [node_key_first, node_key_last, node_key_last]
+    load = [form_star.node_attribute(node_key_first, 'qx'), 0.0, 0.0]
+    thrust_x = [form_star.node_attribute(node_key_last, 'rx'), 0.0, 0.0]
+    thrust_y = [0.0, form_star.node_attribute(node_key_last, 'ry'), 0.0]
+    _forces = [load, thrust_x, thrust_y]
+
+    print()
+    for node, force in zip(_nodes, _forces):
+        print(f"Thrust: {force}")
+        xyz = form_star.node_coordinates(node)
+        line = Line(xyz, add_vectors(xyz, scale_vector(force, -1.0 * forcescale)))
+        plotter.add(
+            line,
+            draw_as_segment=True,
+            linestyle="solid",
+            linewidth=2.0,
+            color=Color.orange()
+        )
+
 plotter.show()
