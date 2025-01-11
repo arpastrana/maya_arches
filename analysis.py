@@ -405,7 +405,7 @@ constraint = NonlinearConstraint(
     lb=lb,
     ub=ub,
     jac=jac_fn,
-    keep_feasible=False  # TODO: False
+    keep_feasible=False
 )
 
 constraints = [constraint]
@@ -487,6 +487,8 @@ plotter.add(
 
 if plot_constraints:
     print(f"\nPlotting constraints")
+    assert len(node_keys_no_first) == len(slices_reversed), f"nodes: {len(node_keys_no_first)} vs. {len(slices_reversed)}"
+    color_constraint = Color.from_rgb255(250, 80, 210)
 
     for node, slice in zip(node_keys_no_first, slices_reversed):
         x, y, z = form_star.node_coordinates(node)
@@ -496,14 +498,14 @@ if plot_constraints:
         if x - constraint_plot_tol <= x_constraint:            
             print(f"\tNode {node} is on the extrados")
             point = Point(x, y, z)
-            plotter.add(point, facecolor=Color.red())
+            plotter.add(point, facecolor=color_constraint)
 
         # Check intrados
         x_constraint = slice.end.x
         if x + constraint_plot_tol >= x_constraint:
             print(f"\tNode {node} is on the intrados")
             point = Point(x, y, z)
-            plotter.add(point, facecolor=Color.blue())
+            plotter.add(point, facecolor=color_constraint)
         
 if plot_loads:
     for node in form_star.nodes():
