@@ -13,6 +13,9 @@ from slicing import create_slice_planes_by_block
 
 from vaults import HalfMayanVault2D
 
+from compas.geometry import Plane
+from compas.geometry import Reflection
+from compas.geometry import Polyline
 from compas.colors import Color
 from compas.geometry import add_vectors
 from compas.geometry import scale_vector
@@ -53,8 +56,8 @@ from jax_cem.equilibrium import form_from_eqstate
 # Parameters
 # ------------------------------------------------------------------------------
 
-height = 10.0  # 10.0
-width = 8.0
+height = 10.0
+width = 8.0  # we only consider half this value for symmetry
 
 wall_width = 2.0
 wall_height = 5.0
@@ -65,19 +68,20 @@ slicing_method = 0  # 0: block, 1: uniform, by height
 block_density = 1.0
 px0 = -1.0  # initial guess for horizontal load at origin node (top)
 
-minmax_thrust = 0 # 0: minimize, 1: maximize
 xyz_tol = 1e-3  # origin node height tolerance on bounds for numerical stability (no zero length segments)
-tol = 1e-6
-maxiter = 100
+tol = 1e-6  # tolerance for optimization
+maxiter = 100  # maximum number of iterations
 
-plot_loads = True  # False
-plot_thrusts = True
+plot_loads = False
+plot_thrusts = False
 forcescale = 0.5
 plot_constraints = True
 constraint_plot_tol = 1e-6
+plot_other_half = True
+plot_edges_as_segments = True
 
 # ------------------------------------------------------------------------------
-# Functions
+# Optimization functions
 # ------------------------------------------------------------------------------
 
 def rebuild_model_from_params(params, model):
@@ -143,6 +147,10 @@ def constraint_fn(params, model):
 
     return x
 
+
+# ------------------------------------------------------------------------------
+# Block functions
+# ------------------------------------------------------------------------------
 
 def calculate_block_area(slice_bottom, slice_top, height):
     """
@@ -322,19 +330,6 @@ filter_spec = eqx.tree_at(
 )
 
 # ------------------------------------------------------------------------------
-# Select loss function
-# ------------------------------------------------------------------------------
-
-if minmax_thrust == 0:
-    print("\nMinimizing thrust")
-    loss_fn = minimize_thrust_fn
-elif minmax_thrust == 1:
-    print("\nMaximizing thrust")
-    loss_fn = maximize_thrust_fn
-else:
-    raise ValueError
-
-# ------------------------------------------------------------------------------
 # Start parameters
 # ------------------------------------------------------------------------------
 
@@ -349,30 +344,21 @@ print(f"{params0=}")
 assert params0.size == 2
 
 # ------------------------------------------------------------------------------
-# Loss, value and grad
-# ------------------------------------------------------------------------------
-
-print("\nCalculating initial loss and gradient values")
-loss = loss_fn(params0, model)
-value_and_grad_fn = jit(value_and_grad(loss_fn))
-loss, gradient = value_and_grad_fn(params0, model)
-print(f"Loss: {loss}")
-print(f"Gradient: {gradient}")
-
-# ------------------------------------------------------------------------------
 # Bounds
 # ------------------------------------------------------------------------------
 
 print("\nGenerating box constraints")
+
 load_bounds = [(None, None)]
-xyz_bounds = [(vault.height - vault.lintel_height + xyz_tol, vault.height - xyz_tol)]
-bounds = load_bounds + xyz_bounds
+y_bounds = [(vault.height - vault.lintel_height + xyz_tol, vault.height - xyz_tol)]
+bounds = load_bounds + y_bounds
 
 # ------------------------------------------------------------------------------
 # Constraints
 # ------------------------------------------------------------------------------
 
 print("\nGenerating inequality constraints")
+
 constraint_fn = jit(partial(constraint_fn, model=model))
 constraint = constraint_fn(params0)
 print(f"Constraint0: {constraint}")
@@ -404,59 +390,74 @@ constraint = NonlinearConstraint(
 constraints = [constraint]
 
 # ------------------------------------------------------------------------------
+# Loss, value and grad
+# ------------------------------------------------------------------------------
+
+forms_star = {}
+loss_fns = {"min": minimize_thrust_fn, "max": maximize_thrust_fn}
+
+for loss_fn_name, loss_fn in loss_fns.items():
+    print(f"\nCalculating initial loss and gradient values for {loss_fn_name} solution")
+
+    loss = loss_fn(params0, model)
+    value_and_grad_fn = jit(value_and_grad(loss_fn))
+    loss, gradient = value_and_grad_fn(params0, model)
+
+    print(f"Loss: {loss}")
+    print(f"Gradient: {gradient}")
+
+# ------------------------------------------------------------------------------
 # Optimization
 # ------------------------------------------------------------------------------
 
-print("\nOptimizing")
+    print("\nOptimizing")
 
-optimizer_name = "SLSQP"
-result = minimize(
-    value_and_grad_fn,
-    params0,
-    model,
-    method=optimizer_name,
-    jac=True,
-    bounds=bounds,
-    constraints=constraints,
-    tol=tol,
-    options={"maxiter": maxiter},
-    callback=None
-)
-print(result)
+    result = minimize(
+        value_and_grad_fn,
+        params0,
+        model,
+        method="SLSQP",
+        jac=True,
+        bounds=bounds,
+        constraints=constraints,
+        tol=tol,
+        options={"maxiter": maxiter},
+        callback=None
+    )
 
-# generate optimized compas cem form diagram
-params_star = result.x
-model_star = rebuild_model_from_params(params_star, model)
-eqstate_star = model_star(structure)
-form_star = form_from_eqstate(structure, eqstate_star)
+    print(result)
+
+    # Generate optimized compas cem form diagram
+    params_star = result.x
+    model_star = rebuild_model_from_params(params_star, model)
+    eqstate_star = model_star(structure)
+    form_star = form_from_eqstate(structure, eqstate_star)
+    forms_star[loss_fn_name] = form_star
 
 # ------------------------------------------------------------------------------
 # Stats
 # ------------------------------------------------------------------------------
 
-print()
-for node in form_star.nodes():
-    print(f"{node} X: {form_star.node_attribute(node, 'x'):.2f}\tPy: {form_star.node_attribute(node, 'qy'):.2f}")
+    print()
+    for node in form_star.nodes():
+        print(f"{node} X: {form_star.node_attribute(node, 'x'):.2f}\tPy: {form_star.node_attribute(node, 'qy'):.2f}")
 
-print()
-for edge in form_star.edges():
-    print(f"{edge} Length: {form_star.edge_length(*edge):.2f}\tForce: {form_star.edge_force(edge):.2f}")
+    print()
+    for edge in form_star.edges():
+        print(f"{edge} Length: {form_star.edge_length(*edge):.2f}\tForce: {form_star.edge_force(edge):.2f}")
 
-sw = sum(fabs(form_star.node_attribute(node, 'qy')) for node in form_star.nodes())
-thrust = fabs(result.fun)
-print(f"\nVertical load sum (SW): {sw:.2f}")
-print(f"\nThrust: {thrust:.4f}")
-print(f"\nRatio thrust / SW [%]: {100.0 * thrust / sw:.1f}")
+    sw = sum(fabs(form_star.node_attribute(node, 'qy')) for node in form_star.nodes())
+    thrust = fabs(result.fun)
+    print(f"\nVertical load sum (SW): {sw:.2f}")
+    print(f"\nThrust: {thrust:.4f}")
+    print(f"\nRatio thrust / SW [%]: {100.0 * thrust / sw:.1f}")
 
 # ------------------------------------------------------------------------------
-# Visualization
+# Plotter
 # ------------------------------------------------------------------------------
 
-print("\nPlotting")
+print("\nStarting plotter")
 plotter = Plotter(figsize=(8, 8))
-
-# plotter.add(topology)
-# plotter.add(form0, show_reactions=False, show_loads=False)
 
 plotter.add(vault_polyline, linestyle="solid", lineweight=2.0, draw_points=False)
 
@@ -464,74 +465,136 @@ for slice in slices:
     plotter.add(
         slice,
         draw_as_segment=True,
-        linestyle="dashed",
-        color=Color.purple()
+        linestyle="dotted",
+        color=Color.grey(),
+        lineweight=0.5,
+        zorder=100
     )
 
-plotter.add(
-    form_star,
-    show_nodes=True,
-    show_reactions=False,
-    nodesize=0.75,
-    show_loads=False,
-    edgewidth=(1, 3),
-    sizepolicy="relative",
-)
-
-if plot_constraints:
-    print(f"\nPlotting constraints")
-    assert len(node_keys_no_first) == len(slices_reversed), f"nodes: {len(node_keys_no_first)} vs. {len(slices_reversed)}"
-    color_constraint = Color.from_rgb255(250, 80, 210)
-
-    for node, slice in zip(node_keys_no_first, slices_reversed):
-        x, y, z = form_star.node_coordinates(node)
-
-        # Check extrados
-        x_constraint = slice.start.x
-        if x - constraint_plot_tol <= x_constraint:            
-            print(f"\tNode {node} is on the extrados")
-            point = Point(x, y, z)
-            plotter.add(point, facecolor=color_constraint)
-
-        # Check intrados
-        x_constraint = slice.end.x
-        if x + constraint_plot_tol >= x_constraint:
-            print(f"\tNode {node} is on the intrados")
-            point = Point(x, y, z)
-            plotter.add(point, facecolor=color_constraint)
-        
-if plot_loads:
-    for node in form_star.nodes():
-        load_y = [0.0, form_star.node_attribute(node, 'qy'), 0.0]
-        xyz = form_star.node_coordinates(node)
-        line = Line(xyz, add_vectors(xyz, scale_vector(load_y, forcescale)))
-        plotter.add(
-            line,
-            draw_as_segment=True,
-            linestyle="solid",
-            color=Color.from_rgb255(0, 150, 10)
+if plot_other_half:
+    plane = Plane((vault.width / 2.0, 0.0, 0.0), (1.0, 0.0, 0.0))
+    R = Reflection.from_plane(plane)
+    plotter.add(
+        vault_polygon.transformed(R),
+        linewidth=0.0,
+        facecolor=Color.from_rgb255(240, 240, 240),
+        zorder=50
         )
+
+# ------------------------------------------------------------------------------
+# Plot before zooming
+# ------------------------------------------------------------------------------
+
+color_blue = Color.from_rgb255(12, 119, 184)
+
+for loss_fn_name, form_star in forms_star.items():
+
+    print(f"\nAdding form to plotter for {loss_fn_name}")
+
+    if plot_edges_as_segments:
+        linestyle = "solid"
+        if loss_fn_name == "min":
+            linestyle = "dashed"
+
+        _polyline = Polyline([form_star.node_coordinates(node) for node in node_keys])      
+        plotter.add(
+            _polyline,
+            draw_points=False,
+            linestyle=linestyle,
+            color=color_blue,
+            linewidth=3.0,
+            zorder=1000
+        )
+
+    else:
+        plotter.add(
+            form_star,
+            show_nodes=False,
+            show_reactions=False,
+            nodesize=0.75,
+            show_loads=False,
+            edgewidth=(2, 5),
+            sizepolicy="relative",
+        )
+
+    if plot_constraints:
+        print(f"\nPlotting constraints")
+        assert len(node_keys_no_first) == len(slices_reversed), f"nodes: {len(node_keys_no_first)} vs. {len(slices_reversed)}"
+      
+        color_constraint_extrados = Color.from_rgb255(250, 80, 210)
+        color_constraint_intrados = Color.orange()
+
+        for node, slice in zip(node_keys_no_first, slices_reversed):
+            x, y, z = form_star.node_coordinates(node)
+
+            # Check extrados
+            x_constraint = slice.start.x
+            if x - constraint_plot_tol <= x_constraint:            
+                print(f"\tNode {node} for {loss_fn_name} is on the extrados")
+                point = Point(x, y, z)
+                plotter.add(point, size=6.0, facecolor=color_constraint_extrados, zorder=2000)
+
+            # Check intrados
+            x_constraint = slice.end.x
+            if x + constraint_plot_tol >= x_constraint:
+                print(f"\tNode {node} for {loss_fn_name} is on the intrados")
+                point = Point(x, y, z)
+                plotter.add(point, size=6.0, facecolor=color_constraint_intrados, zorder=2000)
+
+        x, y, z = form_star.node_coordinates(node_key_first)
+        if y - constraint_plot_tol <= y_bounds[0][0]:
+            print(f"\tNode {node_key_first} for {loss_fn_name} is on the lower bound")
+            point = Point(x, y, z)
+            plotter.add(point, size=6.0, facecolor=color_constraint_intrados, zorder=2000)
+
+        if y + constraint_plot_tol >= y_bounds[0][1]:
+            print(f"\tNode {node_key_first} for {loss_fn_name} is on the upper bound")
+            point = Point(x, y, z)
+            plotter.add(point, size=6.0, facecolor=color_constraint_extrados, zorder=2000)
+
+    if plot_loads:
+        for node in form_star.nodes():
+            load_y = [0.0, form_star.node_attribute(node, 'qy'), 0.0]
+            xyz = form_star.node_coordinates(node)
+            line = Line(xyz, add_vectors(xyz, scale_vector(load_y, forcescale)))
+            plotter.add(
+                line,
+                draw_as_segment=True,
+                linestyle="solid",
+                color=Color.from_rgb255(0, 150, 10)
+            )
 
 plotter.zoom_extents()
 
+# ------------------------------------------------------------------------------
+# Plot thrusts
+# ------------------------------------------------------------------------------
+
 if plot_thrusts:
-    _nodes = [node_key_first, node_key_last, node_key_last]
-    load = [form_star.node_attribute(node_key_first, 'qx'), 0.0, 0.0]
-    thrust_x = [form_star.node_attribute(node_key_last, 'rx'), 0.0, 0.0]
-    thrust_y = [0.0, form_star.node_attribute(node_key_last, 'ry'), 0.0]
-    _forces = [load, thrust_x, thrust_y]
+    for loss_fn_name, form_star in forms_star.items():
+        _nodes = [node_key_first, node_key_last, node_key_last]
+        load = [form_star.node_attribute(node_key_first, 'qx'), 0.0, 0.0]
+        thrust_x = [form_star.node_attribute(node_key_last, 'rx'), 0.0, 0.0]
+        thrust_y = [0.0, form_star.node_attribute(node_key_last, 'ry'), 0.0]
+        _forces = [load, thrust_x, thrust_y]
 
-    print()
-    for node, force in zip(_nodes, _forces):
-        print(f"Thrust: {force}")
-        xyz = form_star.node_coordinates(node)
-        line = Line(xyz, add_vectors(xyz, scale_vector(force, -1.0 * forcescale)))
-        plotter.add(
-            line,
-            draw_as_segment=True,
-            linestyle="solid",
-            linewidth=2.0,
-            color=Color.orange()
-        )
+        _nodes = [node_key_first, node_key_last]
+        load = [form_star.node_attribute(node_key_first, 'qx'), 0.0, 0.0]
+        thrust_x = [form_star.node_attribute(node_key_last, 'rx'), 0.0, 0.0]        
+        _forces = [load, thrust_x]
 
+        print()
+        for node, force in zip(_nodes, _forces):
+            print(f"Thrust: {force}")
+            xyz = form_star.node_coordinates(node)
+            line = Line(xyz, add_vectors(xyz, scale_vector(force, -1.0 * forcescale)))
+            plotter.add(
+                line,
+                draw_as_segment=True,
+                linestyle="solid",
+                linewidth=2.0,
+                color=Color.grey()
+            )
+
+plotter.save(f"figures/minmax.pdf", transparent=True, bbox_inches="tight")
 plotter.show()

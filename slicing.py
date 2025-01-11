@@ -74,7 +74,6 @@ def create_slice_planes_by_block(vault: MayanVault, num_planes: int = 3) -> List
     assert num_planes >= num_planes_min, f"The number of planes must be greater than or equal to {num_planes_min}"
 
     # Create planes
-    # Heights: wall height, corbel height, lintel will always be one block
     heights = [vault.wall_height, vault.corbel_height]
     num_meta_blocks = len(heights)
 
@@ -85,11 +84,6 @@ def create_slice_planes_by_block(vault: MayanVault, num_planes: int = 3) -> List
     weights = [height ** 2 for height in heights]
     num_planes_per_segment = estimate_num_objects_percentages(weights, num_planes_extra)
     count_extra = round_numbers_integer_sum(num_planes_per_segment)
-
-    print(f"\t{num_planes_extra=}")
-    print(f"\t{heights=}")
-    print(f"\t{num_planes_per_segment=}")
-    print(f"\t{count_extra=}")
 
     # Add extra number of planes to the minimum
     num_planes_per_segment_min = 2
