@@ -17,6 +17,7 @@ from vaults import HalfMayanVault2D
 from compas.colors import Color
 from compas.geometry import add_vectors
 from compas.geometry import scale_vector
+from compas.geometry import Point
 from compas.geometry import Line
 from compas.utilities import pairwise
 
@@ -26,7 +27,6 @@ from compas_plotters import Plotter
 from compas_cem.diagrams import TopologyDiagram
 from compas_cem.elements import Node
 from compas_cem.elements import TrailEdge
-from compas_cem.elements import DeviationEdge
 from compas_cem.loads import NodeLoad
 from compas_cem.supports import NodeSupport
 from compas_cem.equilibrium import static_equilibrium
@@ -69,7 +69,7 @@ num_slices = 10
 block_density = 1.0
 px0 = -1.0  # initial guess for horizontal load at origin node (top)
 
-minmax_thrust = 1  # 0: minimize, 1: maximize
+minmax_thrust = 0  # 0: minimize, 1: maximize
 xyz_tol = 1e-3  # origin node height tolerance on bounds for numerical stability (no zero length segments)
 tol = 1e-6
 maxiter = 100
@@ -77,7 +77,75 @@ maxiter = 100
 plot_loads = True  # False
 plot_thrusts = True
 forcescale = 0.5
+plot_constraints = True
+constraint_plot_tol = 1e-6
 
+# ------------------------------------------------------------------------------
+# Functions
+# ------------------------------------------------------------------------------
+
+def rebuild_model_from_params(params, model):
+    """
+    """
+    # unpack parameters
+    px = params[0]
+    y = params[1]
+
+    # update arrays in place
+    loads = model.loads.at[0, 0:1].set(px)
+    xyz = model.xyz.at[0, 1:2].set(y)
+
+    # update model pytree with equinox voodoo
+    model = eqx.tree_at(
+        lambda tree: (tree.loads, tree.xyz),
+        model,
+        replace=(loads, xyz)
+    )
+
+    return model
+
+
+def minimize_thrust_fn(params, model):
+    """
+    The loss function
+    """
+    # reassemble model
+    model = rebuild_model_from_params(params, model)
+
+    # calculate equilibrium state
+    eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
+
+    # extract horizontal reaction force vector
+    reaction_vector = eqstate.reactions[-1, :1]
+    assert reaction_vector.shape == (1,)
+
+    # calculate error
+    return jnp.sqrt(jnp.sum(jnp.square(reaction_vector)))
+
+
+def maximize_thrust_fn(params, model):
+    """
+    The loss function
+    """
+    return -1.0 * minimize_thrust_fn(params, model)
+
+
+def constraint_fn(params, model):
+    """
+    """
+    # reassemble model
+    model = rebuild_model_from_params(params, model)
+
+    # calculate equilibrium state
+    eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
+
+    # extract x coordinates
+    x = eqstate.xyz[:, 0]
+
+    # select nodes of interest
+    x = x[1:]
+
+    return x
 
 # ------------------------------------------------------------------------------
 # Create a Mayan vault
@@ -223,7 +291,7 @@ print(topology)
 # Compute a state of static equilibrium with COMPAS CEM
 # ------------------------------------------------------------------------------
 
-# form = static_equilibrium(topology, tmax=1)
+form_compas = static_equilibrium(topology, tmax=1)
 
 # ------------------------------------------------------------------------------
 # JAX CEM - form finding
@@ -250,81 +318,15 @@ for reaction in eqstate.reactions:
     print(reaction)
 
 # ------------------------------------------------------------------------------
-# Functions
+# Filter specification
 # ------------------------------------------------------------------------------
 
-# Filter specification
 filter_spec = jtu.tree_map(lambda _: False, model)
 filter_spec = eqx.tree_at(
     lambda tree: (tree.loads, tree.xyz),
     filter_spec,
     replace=(True, True)
 )
-
-
-def rebuild_model_from_params(params, model):
-    """
-    """
-    # unpack parameters
-    px = params[0]
-    y = params[1]
-
-    # update arrays in place
-    loads = model.loads.at[0, 0:1].set(px)
-    xyz = model.xyz.at[0, 1:2].set(y)
-
-    # update model pytree with equinox voodoo
-    model = eqx.tree_at(
-        lambda tree: (tree.loads, tree.xyz),
-        model,
-        replace=(loads, xyz)
-    )
-
-    return model
-
-
-def minimize_thrust_fn(params, model):
-    """
-    The loss function
-    """
-    # reassemble model
-    model = rebuild_model_from_params(params, model)
-
-    # calculate equilibrium state
-    eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
-
-    # extract horizontal reaction force vector
-    reaction_vector = eqstate.reactions[-1, :1]
-    assert reaction_vector.shape == (1,)
-
-    # calculate error
-    return jnp.sqrt(jnp.sum(jnp.square(reaction_vector)))
-
-
-def maximize_thrust_fn(params, model):
-    """
-    The loss function
-    """
-    return -1.0 * minimize_thrust_fn(params, model)
-
-
-def constraint_fn(params, model):
-    """
-    """
-    # reassemble model
-    model = rebuild_model_from_params(params, model)
-
-    # calculate equilibrium state
-    eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
-
-    # extract x coordinates
-    x = eqstate.xyz[:, 0]
-
-    # select nodes of interest
-    x = x[1:]
-
-    return x
-
 
 # ------------------------------------------------------------------------------
 # Select loss function
@@ -386,7 +388,7 @@ lb = []
 ub = []
 
 slices_reversed = slices[::-1]
-for i, slice in enumerate(slices_reversed):
+for slice in slices_reversed:
     start = slice.start
     end = slice.end
     lb.append(start.x)
@@ -460,6 +462,9 @@ print(f"\nRatio thrust / SW [%]: {100.0 * thrust / sw:.1f}")
 print("\nPlotting")
 plotter = Plotter(figsize=(8, 8))
 
+# plotter.add(topology)
+# plotter.add(form0, show_reactions=False, show_loads=False)
+
 plotter.add(vault_polyline, linestyle="solid", lineweight=2.0, draw_points=False)
 
 for slice in slices:
@@ -469,9 +474,6 @@ for slice in slices:
         linestyle="dashed",
         color=Color.purple()
     )
-
-# plotter.add(topology)
-# plotter.add(form0, show_reactions=False, show_loads=False)
 
 plotter.add(
     form_star,
@@ -483,6 +485,26 @@ plotter.add(
     sizepolicy="relative",
 )
 
+if plot_constraints:
+    print(f"\nPlotting constraints")
+
+    for node, slice in zip(node_keys_no_first, slices_reversed):
+        x, y, z = form_star.node_coordinates(node)
+
+        # Check extrados
+        x_constraint = slice.start.x
+        if x - constraint_plot_tol <= x_constraint:            
+            print(f"\tNode {node} is on the extrados")
+            point = Point(x, y, z)
+            plotter.add(point, facecolor=Color.red())
+
+        # Check intrados
+        x_constraint = slice.end.x
+        if x + constraint_plot_tol >= x_constraint:
+            print(f"\tNode {node} is on the intrados")
+            point = Point(x, y, z)
+            plotter.add(point, facecolor=Color.blue())
+        
 if plot_loads:
     for node in form_star.nodes():
         load_y = [0.0, form_star.node_attribute(node, 'qy'), 0.0]
