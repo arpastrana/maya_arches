@@ -1,7 +1,5 @@
 """
-TODO: Generate slices per block (wall, corbel, lintel)
 TODO: Plot minmax solutions in the same figure.
-TODO: Add colored dots where thrust line touches intrados / extrados.
 TODO: Automate script to sweep over various geometric ratios
 TODO: Initialization strategy: minimize loadpath
 """
@@ -11,6 +9,7 @@ from math import fabs
 
 from slicing import slice_vault
 from slicing import create_slice_planes
+from slicing import create_slice_planes_by_block
 
 from vaults import HalfMayanVault2D
 
@@ -32,9 +31,6 @@ from compas_cem.supports import NodeSupport
 from compas_cem.equilibrium import static_equilibrium
 
 # jax
-import jax
-import jaxopt
-
 from jax import value_and_grad
 from equinox import filter_jit as jit
 
@@ -57,19 +53,19 @@ from jax_cem.equilibrium import form_from_eqstate
 # Parameters
 # ------------------------------------------------------------------------------
 
-height = 10.0
+height = 10.0  # 10.0
 width = 8.0
 
 wall_width = 2.0
 wall_height = 5.0
-lintel_height = 2.0
+lintel_height = 1.0
 
 num_slices = 10
-
+slicing_method = 0  # 0: block, 1: uniform, by height
 block_density = 1.0
 px0 = -1.0  # initial guess for horizontal load at origin node (top)
 
-minmax_thrust = 0  # 0: minimize, 1: maximize
+minmax_thrust = 0 # 0: minimize, 1: maximize
 xyz_tol = 1e-3  # origin node height tolerance on bounds for numerical stability (no zero length segments)
 tol = 1e-6
 maxiter = 100
@@ -147,6 +143,23 @@ def constraint_fn(params, model):
 
     return x
 
+
+def calculate_block_area(slice_bottom, slice_top, height):
+    """
+    """
+    base = slice_bottom.length + slice_top.length
+
+    return base * height / 2.0
+
+
+def calculate_slices_height_delta(slice_bottom, slice_top):
+    """
+    """
+    yb = slice_bottom.midpoint.y
+    yt = slice_top.midpoint.y
+
+    return yt - yb
+
 # ------------------------------------------------------------------------------
 # Create a Mayan vault
 # ------------------------------------------------------------------------------
@@ -166,18 +179,16 @@ vault_polygon = vault.polygon()
 # Slicing
 # ------------------------------------------------------------------------------
 
-max_height = vault.height
-if minmax_thrust:
+if slicing_method == 0:
+    planes = create_slice_planes_by_block(vault, num_slices)
+elif slicing_method == 1:    
     max_height = vault.wall_height + vault.corbel_height
-    # max_height = vault.height - vault.height / num_slices
+    print(f"Max height for slicing: {max_height}")
+    planes = create_slice_planes(vault, num_slices, max_height)
+else:
+    raise ValueError(f"Invalid slicing method: {slicing_method}")
 
-# NOTE: Hardcording max height for debugging
-max_height = vault.wall_height + vault.corbel_height
-print(f"Max height: {max_height}")
-
-planes = create_slice_planes(vault, num_slices, max_height)
 slices = slice_vault(vault, planes)
-
 for i, slice in enumerate(slices):
     print(f"Slice {i}:\tLength:{slice.length:.2f}")
     assert slice.length <= vault.width / 2.0
@@ -221,24 +232,6 @@ for key, slice in zip(node_keys_no_first, slices_reversed):
     py = slice.length * block_density * -1.0
     load = [0.0, py, 0.0]
     topology.add_load(NodeLoad(key, load))
-
-
-def calculate_block_area(slice_bottom, slice_top, height):
-    """
-    """
-    base = slice_bottom.length + slice_top.length
-
-    return base * height / 2.0
-
-
-def calculate_slices_height_delta(slice_bottom, slice_top):
-    """
-    """
-    yb = slice_bottom.midpoint.y
-    yt = slice_top.midpoint.y
-
-    return yt - yb
-
 
 # Apply loads to all nodes except the first
 for i in range(num_slices):
