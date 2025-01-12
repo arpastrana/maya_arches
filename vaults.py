@@ -2,6 +2,8 @@ from compas.geometry import add_vectors
 from compas.geometry import Polyline
 from compas.geometry import Polygon
 
+from blocks import create_blocks
+
 
 class MayanVault:
     pass
@@ -21,6 +23,8 @@ class HalfMayanVault2D(MayanVault):
 
         self._check_width()
         self._check_height()
+
+        self.blocks = None
 
     @property
     def span(self):
@@ -76,3 +80,9 @@ class HalfMayanVault2D(MayanVault):
 
         if self.lintel_height > self.wall_height:
             print("\nWarning! The lintel is taller than the walls")
+
+    def blockify(self, num_blocks: int, slicing_method: int) -> None:
+        """
+        Create blocks from the vault. The lintel roof won't be sliced.
+        """
+        self.blocks = create_blocks(self, num_blocks, slicing_method)

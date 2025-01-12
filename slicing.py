@@ -7,7 +7,7 @@ from compas.geometry import add_vectors
 from compas.geometry import intersection_polyline_plane
 from compas.geometry import allclose
 
-from vaults import MayanVault
+# from vaults import MayanVault
 
 
 def round_numbers_integer_sum(xs: List[float]) -> List[int]:
@@ -56,7 +56,7 @@ def estimate_num_objects_percentages(values: List[float], num_objects: int, tota
     return [num_objects * value / total for value in values]
 
 
-def create_slice_planes_by_block(vault: MayanVault, num_planes: int = 3) -> List[Line]:
+def create_slice_planes_by_block(vault, num_planes: int = 3) -> List[Line]:
     """
     Slices a vault horizontally, creating planar line slices.
 
@@ -112,7 +112,7 @@ def create_slice_planes_by_block(vault: MayanVault, num_planes: int = 3) -> List
     return planes
 
 
-def create_slice_planes(vault: MayanVault, num_planes: int = 2, max_height: float = None) -> List[Line]:
+def create_slice_planes(vault, num_planes: int = 2, max_height: float = None) -> List[Line]:
     """
     Slices a vault horizontally, creating planar line slices.
 
@@ -138,7 +138,7 @@ def create_slice_planes(vault: MayanVault, num_planes: int = 2, max_height: floa
     return planes
 
 
-def slice_vault(vault: MayanVault, planes: List[Plane]) -> List[Line]:
+def slice_vault(vault, planes: List[Plane]) -> List[Line]:
     """
     Slices a vault horizontally, creating planar line slices.
 

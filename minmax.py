@@ -7,9 +7,9 @@ from functools import partial
 
 from math import fabs
 
-from slicing import slice_vault
-from slicing import create_slice_planes
-from slicing import create_slice_planes_by_block
+# from slicing import slice_vault
+# from slicing import create_slice_planes
+# from slicing import create_slice_planes_by_block
 
 from vaults import HalfMayanVault2D
 
@@ -63,7 +63,7 @@ wall_width = 2.0
 wall_height = 5.0
 lintel_height = 1.0
 
-num_slices = 10
+num_blocks = 10
 slicing_method = 0  # 0: block, 1: uniform, by height
 block_density = 1.0
 px0 = -1.0  # initial guess for horizontal load at origin node (top)
@@ -72,13 +72,14 @@ xyz_tol = 1e-3  # origin node height tolerance on bounds for numerical stability
 tol = 1e-6  # tolerance for optimization
 maxiter = 100  # maximum number of iterations
 
-plot_loads = False
+plot_loads = True
 plot_thrusts = False
 forcescale = 0.5
 plot_constraints = True
 constraint_plot_tol = 1e-6
 plot_other_half = True
 plot_edges_as_segments = True
+save_plot = True
 
 # ------------------------------------------------------------------------------
 # Optimization functions
@@ -183,23 +184,7 @@ vault = HalfMayanVault2D(
 vault_polyline = vault.polyline()
 vault_polygon = vault.polygon()
 
-# ------------------------------------------------------------------------------
-# Slicing
-# ------------------------------------------------------------------------------
-
-if slicing_method == 0:
-    planes = create_slice_planes_by_block(vault, num_slices)
-elif slicing_method == 1:    
-    max_height = vault.wall_height + vault.corbel_height
-    print(f"Max height for slicing: {max_height}")
-    planes = create_slice_planes(vault, num_slices, max_height)
-else:
-    raise ValueError(f"Invalid slicing method: {slicing_method}")
-
-slices = slice_vault(vault, planes)
-for i, slice in enumerate(slices):
-    print(f"Slice {i}:\tLength:{slice.length:.2f}")
-    assert slice.length <= vault.width / 2.0
+vault.blockify(num_blocks, slicing_method)
 
 # ------------------------------------------------------------------------------
 # Instantiate a topology diagram
@@ -212,14 +197,15 @@ topology = TopologyDiagram()
 # ------------------------------------------------------------------------------
 
 node_keys = []
-for i in range(num_slices + 1):
-    factor = 1.0 - i / (num_slices)
+for i in range(num_blocks + 1):
+    factor = 1.0 - i / (num_blocks)
     point = [factor * vault.width * 0.5, vault.height, 0.0]
     key = topology.add_node(Node(i, point))
     node_keys.append(key)
 
 node_key_first = node_keys[0]
 node_key_last = node_keys[-1]
+node_keys_reversed = node_keys[::-1]
 
 # ------------------------------------------------------------------------------
 # Set Supports Nodes
@@ -231,54 +217,29 @@ topology.add_support(NodeSupport(node_key_last))
 # Add Loads
 # ------------------------------------------------------------------------------
 
-assert (len(node_keys) - 1) == len(slices), f"nodes: {len(node_keys) - 1} vs. {len(slices)}"
+assert (len(node_keys) - 1) == len(vault.blocks), f"nodes: {len(node_keys) - 1} vs. {len(vault.blocks)}"
 
-slices_reversed = slices[::-1]
 node_keys_no_first = node_keys[1:]
-
-for key, slice in zip(node_keys_no_first, slices_reversed):
-    py = slice.length * block_density * -1.0
-    load = [0.0, py, 0.0]
-    topology.add_load(NodeLoad(key, load))
+node_keys_no_first_reversed = node_keys_no_first[::-1]
 
 # Apply loads to all nodes except the first
-for i in range(num_slices):
-    key = node_keys_no_first[i]
-
-    # The second node carries the full lintel height
-    # TODO: Should the second note only carry half the height?
-    if i == 0:
-        slice_bot = slices_reversed[i]
-        slice_top = slices_reversed[i]
-        height = vault.lintel_height / 2.0
-    else:
-        slice_bot = slices_reversed[i]
-        slice_top = slices_reversed[i - 1]
-        height = calculate_slices_height_delta(slice_bot, slice_top)
-
-    slice_area = calculate_block_area(slice_bot, slice_top, height)
-    print(i, "height", height, "area", slice_area)
-
-    py = slice_area * block_density * -1.0
+for key, block in zip(node_keys_no_first_reversed, vault.blocks):
+    py = block.weight(block_density * -1.0)
     load = [0.0, py, 0.0]
     topology.add_load(NodeLoad(key, load))
 
-# Apply load to the first node
-slice_bot = slices_reversed[0]
-slice_top = slices_reversed[0]
-height = vault.lintel_height / 2.0
-slice_area_0 = calculate_block_area(slice_bot, slice_top, height)
-py0 = slice_area_0 * block_density * -1.0
-
-topology.add_load(NodeLoad(node_key_first, [px0, py0, 0.0]))
+# Modify the first and second node loads
+block_last = vault.blocks[-1]  # The last block is the lintel roof
+py0 = block_last.weight(block_density * -1.0) / 2.0
+for key in node_keys[:2]:
+    topology.add_load(NodeLoad(key, [px0, py0, 0.0]))
 
 # ------------------------------------------------------------------------------
 # Add Trail Edges
 # ------------------------------------------------------------------------------
 
-planes_reversed = planes[::-1]
-for (u, v), plane in zip(pairwise(node_keys), planes_reversed):
-    topology.add_edge(TrailEdge(u, v, length=-1.0, plane=plane))
+for (u, v), block in zip(pairwise(node_keys_reversed), vault.blocks):
+    topology.add_edge(TrailEdge(u, v, length=-1.0, plane=block.plane))
 
 # ------------------------------------------------------------------------------
 # Build trails automatically
@@ -304,7 +265,6 @@ model = EquilibriumModel.from_topology_diagram(topology)
 eqstate = model(structure)
 reaction = eqstate.reactions[node_key_last, :]
 form0 = form_from_eqstate(structure, eqstate)
-
 
 print("\nLoads")
 for load in eqstate.loads:
@@ -366,10 +326,9 @@ print(f"Constraint0: {constraint}")
 lb = []
 ub = []
 
-slices_reversed = slices[::-1]
-for slice in slices_reversed:
-    start = slice.start
-    end = slice.end
+for block in vault.blocks[::-1]:
+    start = block.line_bottom.start
+    end = block.line_bottom.end
     lb.append(start.x)
     ub.append(end.x)
 
@@ -394,7 +353,8 @@ constraints = [constraint]
 # ------------------------------------------------------------------------------
 
 forms_star = {}
-loss_fns = {"min": minimize_thrust_fn, "max": maximize_thrust_fn}
+# loss_fns = {"min": minimize_thrust_fn, "max": maximize_thrust_fn}
+loss_fns = {"min": minimize_thrust_fn}
 
 for loss_fn_name, loss_fn in loss_fns.items():
     print(f"\nCalculating initial loss and gradient values for {loss_fn_name} solution")
@@ -461,9 +421,9 @@ plotter = Plotter(figsize=(8, 8))
 
 plotter.add(vault_polyline, linestyle="solid", lineweight=2.0, draw_points=False)
 
-for slice in slices:
+for block in vault.blocks:
     plotter.add(
-        slice,
+        block.line_bottom,
         draw_as_segment=True,
         linestyle="dotted",
         color=Color.grey(),
@@ -519,12 +479,13 @@ for loss_fn_name, form_star in forms_star.items():
 
     if plot_constraints:
         print(f"\nPlotting constraints")
-        assert len(node_keys_no_first) == len(slices_reversed), f"nodes: {len(node_keys_no_first)} vs. {len(slices_reversed)}"
+        assert len(node_keys_no_first) == len(vault.blocks), f"nodes: {len(node_keys_no_first)} vs. {len(vault.blocks)}"
       
         color_constraint_extrados = Color.from_rgb255(250, 80, 210)
         color_constraint_intrados = Color.orange()
 
-        for node, slice in zip(node_keys_no_first, slices_reversed):
+        for node, block in zip(node_keys_no_first[::-1], vault.blocks):
+            slice = block.line_bottom
             x, y, z = form_star.node_coordinates(node)
 
             # Check extrados
@@ -596,5 +557,7 @@ if plot_thrusts:
                 color=Color.grey()
             )
 
-plotter.save(f"figures/minmax.pdf", transparent=True, bbox_inches="tight")
+if save_plot:
+    plotter.save(f"figures/minmax.pdf", transparent=True, bbox_inches="tight")
+
 plotter.show()
