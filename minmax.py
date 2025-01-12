@@ -3,8 +3,6 @@ TODO: Plot minmax solutions in the same figure.
 TODO: Automate script to sweep over various geometric ratios
 TODO: Initialization strategy: minimize loadpath
 """
-from functools import partial
-
 from math import fabs
 
 from vaults import HalfMayanVault2D
@@ -80,32 +78,11 @@ vault.blockify(num_blocks, slicing_method)
 topology = create_topology_from_vault(vault, block_density, px0)
 
 # ------------------------------------------------------------------------------
-# Compute a state of static equilibrium with COMPAS CEM
-# ------------------------------------------------------------------------------
-
-# form_compas = static_equilibrium(topology, tmax=1)
-
-# ------------------------------------------------------------------------------
 # JAX CEM - form finding
 # ------------------------------------------------------------------------------
 
 structure = EquilibriumStructure.from_topology_diagram(topology)
 model = EquilibriumModel.from_topology_diagram(topology)
-
-# eqstate = model(structure)
-# form0 = form_from_eqstate(structure, eqstate)
-
-# print("\nLoads")
-# for load in eqstate.loads:
-#     print(load)
-
-# print("\nXYZ")
-# for xyz in eqstate.xyz:
-#     print(xyz)
-
-# print("\nReactions")
-# for reaction in eqstate.reactions:
-#     print(reaction)
 
 # ------------------------------------------------------------------------------
 # Start parameters
