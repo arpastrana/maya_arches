@@ -87,7 +87,6 @@ def create_blocks(vault, num_blocks: int, slicing_method: int) -> list[Block]:
 
     # Check slice lengths
     for i, line in enumerate(slice_lines):
-        print(f"Slice {i}:\tLength:{line.length:.2f}")
         assert line.length <= vault.width / 2.0
 
     # Create blocks from slice lines
