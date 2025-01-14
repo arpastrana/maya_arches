@@ -3,11 +3,8 @@ from typing import List
 from compas.geometry import Line
 from compas.geometry import Plane
 from compas.geometry import Translation
-from compas.geometry import add_vectors
 from compas.geometry import intersection_polyline_plane
 from compas.geometry import allclose
-
-# from vaults import MayanVault
 
 
 def round_numbers_integer_sum(xs: List[float]) -> List[int]:
