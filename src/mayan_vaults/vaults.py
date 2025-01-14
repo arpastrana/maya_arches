@@ -2,7 +2,7 @@ from compas.geometry import add_vectors
 from compas.geometry import Polyline
 from compas.geometry import Polygon
 
-from blocks import create_blocks
+from mayan_vaults.blocks import create_blocks
 
 
 class MayanVault:

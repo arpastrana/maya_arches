@@ -23,8 +23,8 @@ from jax_cem.equilibrium import EquilibriumModel
 from jax_cem.equilibrium import EquilibriumStructure
 from jax_cem.equilibrium import form_from_eqstate
 
-from datastructures import ThrustNetwork
-from datastructures import ThrustNetwork2D
+from mayan_vaults.datastructures import ThrustNetwork
+from mayan_vaults.datastructures import ThrustNetwork2D
 
 
 # ------------------------------------------------------------------------------

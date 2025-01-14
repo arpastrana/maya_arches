@@ -4,9 +4,9 @@ from compas.geometry import Point
 from compas.geometry import Line
 from compas.geometry import Plane
 
-from slicing import slice_vault
-from slicing import create_slice_planes
-from slicing import create_slice_planes_by_block
+from mayan_vaults.blocks.slicing import slice_vault
+from mayan_vaults.blocks.slicing import create_slice_planes
+from mayan_vaults.blocks.slicing import create_slice_planes_by_block
 
 
 class Block:

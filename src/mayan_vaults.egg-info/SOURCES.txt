@@ -1,0 +1,16 @@
+LICENSE
+README.md
+pyproject.toml
+setup.cfg
+src/mayan_vaults/__init__.py
+src/mayan_vaults/blocks.py
+src/mayan_vaults/datastructures.py
+src/mayan_vaults/optimization.py
+src/mayan_vaults/plotting.py
+src/mayan_vaults/slicing.py
+src/mayan_vaults/vaults.py
+src/mayan_vaults.egg-info/PKG-INFO
+src/mayan_vaults.egg-info/SOURCES.txt
+src/mayan_vaults.egg-info/dependency_links.txt
+src/mayan_vaults.egg-info/requires.txt
+src/mayan_vaults.egg-info/top_level.txt

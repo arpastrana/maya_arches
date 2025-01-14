@@ -9,17 +9,17 @@ from jax_cem.equilibrium import EquilibriumModel
 from jax_cem.equilibrium import EquilibriumStructure
 
 # vaults
-from vaults import HalfMayanVault2D
+from mayan_vaults.vaults import HalfMayanVault2D
 
-from datastructures import create_topology_from_vault
+from mayan_vaults.datastructures import create_topology_from_vault
 
-from optimization import solve_thrust_min
-from optimization import solve_thrust_max
-from optimization import calculate_start_params
-from optimization import create_thrust_network_from_opt_result
-from optimization import test_thrust_opt_result
+from mayan_vaults.optimization import solve_thrust_min
+from mayan_vaults.optimization import solve_thrust_max
+from mayan_vaults.optimization import calculate_start_params
+from mayan_vaults.optimization import create_thrust_network_from_opt_result
+from mayan_vaults.optimization import test_thrust_opt_result
 
-from plotting import VaultPlotter
+from mayan_vaults.plotting import VaultPlotter
 
 
 # ------------------------------------------------------------------------------
@@ -30,7 +30,7 @@ height = 10.0
 width = 8.0  # we only consider half this value for symmetry
 
 wall_width = 2.0
-wall_height = 8.22
+wall_height = 5.0
 lintel_height = 1.0
 
 num_blocks = 10
