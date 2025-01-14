@@ -2,6 +2,7 @@
 TODO: Automate script to sweep over various geometric ratios
 TODO: Initialization strategy: minimize loadpath
 """
+import os
 from warnings import warn
 
 # jax cem
@@ -21,6 +22,7 @@ from mayan_vaults.optimization import test_thrust_opt_result
 
 from mayan_vaults.plotting import VaultPlotter
 
+from mayan_vaults import FIGURES
 
 # ------------------------------------------------------------------------------
 # Parameters
@@ -49,7 +51,7 @@ plot_other_half = True
 plot_loads = False
 plot_thrusts = False
 
-save_plot = False
+save_plot = True
 
 # ------------------------------------------------------------------------------
 # Create a Mayan vault
@@ -159,7 +161,10 @@ for loss_fn_name, network in networks.items():
         plotter.plot_thrust_network_thrusts(network, forcescale)
 
 if save_plot:
-    plotter.save(f"figures/minmax.pdf", transparent=True, bbox_inches="tight")
+    fig_name = f"minmax_h{int(height)}_w{int(width)}_wh{int(wall_height)}_ww{int(wall_width)}_lh{int(lintel_height)}.pdf"
+    fig_path = os.path.join(FIGURES, fig_name)
+    plotter.save(fig_path, transparent=True, bbox_inches="tight")
+    print(f"\nSaved figure to {fig_path}")
 
 plotter.show()
 
