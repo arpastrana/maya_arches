@@ -1,3 +1,9 @@
+"""
+TODO: Initialization strategy: minimize loadpath
+"""
+
+from warnings import warn
+
 from math import fabs
 
 from typing import Callable
@@ -25,7 +31,9 @@ from jax_cem.equilibrium import form_from_eqstate
 
 from mayan_vaults.datastructures import ThrustNetwork
 from mayan_vaults.datastructures import ThrustNetwork2D
+from mayan_vaults.datastructures import create_topology_from_vault
 
+from mayan_vaults.vaults import MayanVault
 
 # ------------------------------------------------------------------------------
 # Optimization functions
@@ -226,14 +234,14 @@ def solve_thrust_opt(
     return result
 
 
-def solve_thrust_min(*args, **kwargs) -> FormDiagram:
+def solve_thrust_opt_min(*args, **kwargs) -> FormDiagram:
     """
     Solve a thrust minimization problem via gradient-based optimization.
     """
     return partial(solve_thrust_opt, loss_fn=minimize_thrust_fn)(*args, **kwargs)
 
 
-def solve_thrust_max(*args, **kwargs) -> FormDiagram:
+def solve_thrust_opt_max(*args, **kwargs) -> FormDiagram:
     """
     Solve a thrust maximization problem via gradient-based optimization.
     """
@@ -241,9 +249,76 @@ def solve_thrust_max(*args, **kwargs) -> FormDiagram:
 
 
 # ------------------------------------------------------------------------------
-# Results
+# Solvers on vaults
 # ------------------------------------------------------------------------------
 
+def solve_thrust_minmax_vault(
+        vault: MayanVault,
+        tol_bounds: float,
+        tol: float,
+        maxiter: int
+    ) -> tuple[dict, dict]:
+    """
+    Solve the thrust minimization and maximization problems for a given vault geometry.
+    """
+    # Instantiate a topology diagram
+    topology = create_topology_from_vault(vault)
+
+    # JAX CEM - form finding
+    structure = EquilibriumStructure.from_topology_diagram(topology)
+    model = EquilibriumModel.from_topology_diagram(topology)
+    
+    # Calculate start parameters
+    # Horizontal load and the 2D coordinates of the origin node
+    params0 = calculate_start_params(topology)
+
+    networks = {}
+    results = {}
+    solve_fns = {"min": solve_thrust_opt_min, "max": solve_thrust_opt_max}
+
+    for solve_fn_name, solve_fn in solve_fns.items():
+
+        print(f"\n***** Solving for {solve_fn_name} solution *****\n")
+        result = solve_fn(
+            vault,
+            params0,
+            model,
+            structure,
+            maxiter=maxiter,
+            tol=tol,
+            tol_bounds=tol_bounds
+        )
+
+        if not result.success:
+            warn("Optimization failed\n")
+            print(result)
+
+        # Generate thrust network
+        network = create_thrust_network_from_opt_result(result, model, structure)
+
+        # Check results
+        test_thrust_opt_result(network, vault, result)
+        networks[solve_fn_name] = network
+
+        # Stats
+        sw = vault.weight()
+        thrust = network.thrust()
+
+        print(f"SW (Vertical load sum): {sw:.2f}")
+        print(f"Thrust at support: {thrust:.2f}")
+        print(f"Ratio thrust / SW [%]: {100.0 * thrust / sw:.1f}")
+
+        results[solve_fn_name] = {
+            "thrust": thrust,
+            "sw": sw            
+        }
+
+    return networks, results
+
+
+# ------------------------------------------------------------------------------
+# Results
+# ------------------------------------------------------------------------------
 
 def create_thrust_network_from_opt_result(
         result: OptimizeResult, 

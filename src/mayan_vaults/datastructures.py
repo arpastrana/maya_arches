@@ -15,7 +15,7 @@ from compas_cem.supports import NodeSupport
 # Instantiate a topology diagram
 # ------------------------------------------------------------------------------
 
-def create_topology_from_vault(vault, px0: float) -> TopologyDiagram:
+def create_topology_from_vault(vault, px0: float = -1.0) -> TopologyDiagram:
     """
     Create a topology diagram with nodes, loads, trail edges and supports from a vault.
     """

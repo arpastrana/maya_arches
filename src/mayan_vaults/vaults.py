@@ -100,3 +100,33 @@ class HalfMayanVault2D(MayanVault):
 
         if self.lintel_height > self.wall_height:
             print("\nWarning! The lintel is taller than the walls")
+
+
+# ------------------------------------------------------------------------------
+# Helper functions
+# ------------------------------------------------------------------------------
+
+def create_vault(
+        height: float,
+        width: float,
+        wall_height: float,
+        wall_width: float,
+        lintel_height: float,
+        num_blocks: int,
+        slicing_method: int,
+        block_density: float
+    ) -> MayanVault:
+    """
+    Create a blockified Mayan vault.
+    """
+    vault = HalfMayanVault2D(
+        height,
+        width,
+        wall_height,
+        wall_width,
+        lintel_height
+    )
+
+    vault.blockify(num_blocks, block_density, slicing_method)
+
+    return vault

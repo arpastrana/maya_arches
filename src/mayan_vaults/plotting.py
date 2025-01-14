@@ -1,3 +1,6 @@
+import os
+import matplotlib.pyplot as plt
+
 from compas.colors import Color
 
 from compas.geometry import Plane
@@ -10,6 +13,9 @@ from compas.geometry import scale_vector
 from compas.geometry import distance_point_point_sqrd
 
 from compas_plotters import Plotter
+
+from mayan_vaults import FIGURES
+from mayan_vaults.vaults import MayanVault
 
 # ------------------------------------------------------------------------------
 # Plotter
@@ -148,3 +154,55 @@ class VaultPlotter(Plotter):
                         facecolor=color_constraint_extrados, 
                         zorder=2000
                     )
+
+# ------------------------------------------------------------------------------
+# Experiment code
+# ------------------------------------------------------------------------------
+
+def plot_thrust_minmax_vault(
+        vault: MayanVault, 
+        networks: dict,
+        plot_other_half: bool = True,
+        plot_constraints: bool = True,
+        plot_loads: bool = True,
+        plot_thrusts: bool = True,
+        save_plot: bool = True,
+        show_plot: bool = True,
+        forcescale: float = 1.0,
+        tol_bounds: float = 1e-3,
+        ) -> None:
+    """
+    Plot the thrust minimization and maximization results.
+    """
+    print("\n***** Plotting *****")
+    plotter = VaultPlotter(figsize=(8, 8))
+
+    plotter.plot_vault(vault, plot_other_half)
+    plotter.plot_vault_blocks(vault)
+
+    for loss_fn_name, network in networks.items():    
+        linestyle = "solid" if loss_fn_name == "max" else "dashed"
+        plotter.plot_thrust_network(network, linestyle=linestyle)
+
+        if plot_constraints:
+            plotter.plot_constraints(vault, network, tol_bounds)
+
+    plotter.zoom_extents()
+
+    for loss_fn_name, network in networks.items():
+        if plot_loads:
+            plotter.plot_thrust_network_loads(network, forcescale)
+
+        if plot_thrusts:
+            plotter.plot_thrust_network_thrusts(network, forcescale)
+
+    if save_plot:
+        fig_name = f"minmax_h{int(vault.height)}_w{int(vault.width)}_wh{int(vault.wall_height)}_ww{int(vault.wall_width)}_lh{int(vault.lintel_height)}.pdf"
+        fig_path = os.path.join(FIGURES, fig_name)
+        plotter.save(fig_path, transparent=True, bbox_inches="tight")
+        print(f"\nSaved figure to {fig_path}")
+
+    if show_plot:
+        plotter.show()
+
+    plt.close()
