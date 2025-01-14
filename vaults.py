@@ -24,19 +24,33 @@ class HalfMayanVault2D(MayanVault):
         self._check_width()
         self._check_height()
 
-        self.blocks = None
+        self.blocks = {}
 
     @property
     def span(self):
         """
+        The span of the vault.
         """
         return self.width - 2 * self.wall_width
 
     @property
     def corbel_height(self):
         """
+        The height of the corbel.
         """
         return self.height - self.wall_height - self.lintel_height
+        
+    def weight(self):
+        """
+        The weight of the vault.
+
+        Notes
+        -----
+        The weight of block 0 is excluded from the weight calculation
+        because it is a duplicate of block 1.
+        """
+        key_first = 0
+        return sum(block.weight() for key, block in self.blocks.items() if key != key_first)
 
     def points(self):
         """
@@ -65,6 +79,12 @@ class HalfMayanVault2D(MayanVault):
         """
         return Polygon(self.points())
 
+    def blockify(self, num_blocks: int, density: float, slicing_method: int) -> None:
+        """
+        Create blocks from the vault. The lintel roof won't be sliced.
+        """
+        self.blocks = create_blocks(self, num_blocks, density, slicing_method)
+
     def _check_width(self):
         """
         Checks if the width of the vault makes sense.
@@ -80,9 +100,3 @@ class HalfMayanVault2D(MayanVault):
 
         if self.lintel_height > self.wall_height:
             print("\nWarning! The lintel is taller than the walls")
-
-    def blockify(self, num_blocks: int, slicing_method: int) -> None:
-        """
-        Create blocks from the vault. The lintel roof won't be sliced.
-        """
-        self.blocks = create_blocks(self, num_blocks, slicing_method)
