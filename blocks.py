@@ -13,10 +13,11 @@ class Block:
     """
     A block is a 2D polygon representing a unit of a vault.
     """
-    def __init__(self, plane: Plane, line_bottom: Line, line_top: Line):
+    def __init__(self, plane: Plane, line_bottom: Line, line_top: Line, density: float):
         self.plane = plane
         self.line_bottom = line_bottom
         self.line_top = line_top
+        self.density = density
 
     def points(self) -> list[Point]:
         """
@@ -30,6 +31,18 @@ class Block:
         ]
 
         return points
+    
+    def points_intrados(self) -> list[Point]:
+        """
+        The points of the intrados of the block.
+        """
+        return [self.line_bottom.end]
+    
+    def points_extrados(self) -> list[Point]:
+        """
+        The points of the extrados of the block.
+        """
+        return [self.line_bottom.start, self.line_top.start, self.line_top.end]
 
     def polygon(self) -> Polygon:
         """
@@ -43,11 +56,11 @@ class Block:
         """
         return self.polygon().area
     
-    def weight(self, density: float) -> float:
+    def weight(self) -> float:
         """
         The weight of the block.
         """
-        return self.area() * density
+        return self.area() * self.density
     
     def height(self) -> float:
         """
@@ -59,14 +72,17 @@ class Block:
         return f"Block(area={self.area():.2f}, height={self.height():.2f})"
 
 
-def create_blocks(vault, num_blocks: int, slicing_method: int) -> list[Block]:
+def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -> list[Block]:
     """
     Create blocks from a given vault geometry.
 
-    slicing_method: 0: block, 1: uniform, by height
-    """
-    blocks = []
+    Notes
+    -----
+    The blocks are generated from the ground up by slicing the vault into 
+    a prescribed number of blocks.
 
+    The slicing method can be either by meta block (0) or by height (1).
+    """
     # Create slice planes
     if slicing_method == 0:
         planes = create_slice_planes_by_block(vault, num_blocks)
@@ -90,14 +106,25 @@ def create_blocks(vault, num_blocks: int, slicing_method: int) -> list[Block]:
         assert line.length <= vault.width / 2.0
 
     # Create blocks from slice lines
+    blocks = []
     for i in range(num_blocks):
         plane = planes[i]
         line_bottom = slice_lines[i]
         line_top = slice_lines[i + 1]
 
-        block = Block(plane, line_bottom, line_top)
+        block = Block(plane, line_bottom, line_top, density)
         blocks.append(block)
 
     assert len(blocks) == num_blocks, "Number of blocks does not match!"
 
-    return blocks
+    # Reverse the blocks to match the node order
+    blocks = blocks[::-1]
+
+    # Assign blocks to nodes
+    block_dict = {}
+    block_dict[0] = blocks[0]
+
+    for i, block in enumerate(blocks):
+        block_dict[i + 1] = block
+
+    return block_dict
