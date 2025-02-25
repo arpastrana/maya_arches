@@ -1,5 +1,0 @@
-compas==1.17.10
-jax==0.4.14
-equinox==0.11.0
-scipy==1.10.0
-jax-cem==0.1.0
