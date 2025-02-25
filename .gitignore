@@ -5,6 +5,7 @@ tmp/
 
 *.py[cod]
 *.egg
+src/*.egg-info/
 build
 htmlcov
 
