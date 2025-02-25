@@ -20,5 +20,5 @@ plotting:
   plot_other_half: True
   plot_loads: False
   plot_thrusts: False
-  save_plot: True
+  save_plot: False
   show_plot: True
