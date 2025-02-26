@@ -6,7 +6,29 @@ from mayan_vaults.blocks import create_blocks
 
 
 class MayanVault:
-    pass
+    """
+    A base class for Mayan vaults.
+    """
+    def __str__(self):
+        """Return a string representation of the MayanVault object."""
+        params = {
+            'height': self.height,
+            'width': self.width,
+            'wall_height': self.wall_height,
+            'wall_width': self.wall_width,
+            'lintel_height': self.lintel_height,
+            'span': self.span,
+            'corbel_height': self.corbel_height,
+            'num_blocks': len(self.blocks)
+        }
+
+        params_formatted = []
+        for key, value in params.items():
+            if isinstance(value, float):
+                value = f"{value:.2f}"
+            params_formatted.append(f"\t{key}={value}")
+
+        return f"{self.__class__.__name__}(\n" + "\n".join(params_formatted) + "\n)"
 
 
 class HalfMayanVault2D(MayanVault):
