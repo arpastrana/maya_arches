@@ -56,6 +56,13 @@ class HalfMayanVault2D(MayanVault):
         return self.width - 2 * self.wall_width
 
     @property
+    def span_half(self):
+        """
+        Half of the span of the vault.
+        """
+        return self.span / 2.0
+    
+    @property
     def corbel_height(self):
         """
         The height of the corbel.
@@ -71,8 +78,9 @@ class HalfMayanVault2D(MayanVault):
         The weight of block 0 is excluded from the weight calculation
         because it is a duplicate of block 1.
         """
-        key_first = 0
-        return sum(block.weight() for key, block in self.blocks.items() if key != key_first)
+        # key_first = 0        
+        # return sum(block.weight() for key, block in self.blocks.items() if key != key_first)
+        return sum(block.weight() for block in self.blocks.values())
 
     def points(self):
         """
