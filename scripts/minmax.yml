@@ -1,10 +1,10 @@
 vault:
   height: 10.0
   width: 8.0
-  wall_height: 1.0
-  wall_width: 2.0
+  wall_height: 4.5
+  wall_width: 2.5
   lintel_height: 1.0
-  num_blocks: 10
+  num_blocks: 20
   slicing_method: 0  # 0: block, 1: uniform height
   block_density: 1.0
 
