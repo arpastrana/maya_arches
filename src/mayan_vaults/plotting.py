@@ -1,4 +1,7 @@
 import os
+
+from random import random
+
 import matplotlib.pyplot as plt
 
 from compas.colors import Color
@@ -53,22 +56,33 @@ class VaultPlotter(Plotter):
         """
         Plot the vault blocks.
         """
-        for block in vault.blocks.values():
+        for i, block in enumerate(vault.blocks.values()):
+            val = i / len(vault.blocks)
             self.add(
-                block.line_bottom,
+                block.polygon(),                                
+                linewidth=0.0,
+                edgecolor=Color.grey(),
+                facecolor=Color(val, val, 0.5),
+                alpha=0.5,
+                zorder=50,
+            )
+
+            self.add(
+                block.plane_line(),
                 draw_as_segment=True,
                 linestyle="dotted",
-                color=Color.grey(),
-                lineweight=0.5,
+                color=Color.black(),
+                lineweight=1.0,
                 zorder=100
             )
+
 
     def plot_thrust_network(
             self, 
             network,
             linewidth: float = 3.0, 
             linestyle: str = "solid", 
-            color: Color = Color.from_rgb255(12, 119, 184),            
+            color: Color = Color.from_rgb255(12, 119, 184),
             ) -> None:
         """
         Plot the thrust network as a polyline.
@@ -112,9 +126,9 @@ class VaultPlotter(Plotter):
             if not network.is_node_support(node):
                 continue
 
-            thrust_x = [network.node_attribute(node, 'rx'), 0.0, 0.0]
+            thrust_x = [network.node_attribute(node, 'rx'), 0.0, 0.0]            
             xyz = network.node_coordinates(node)
-            line = Line(xyz, add_vectors(xyz, scale_vector(thrust_x, scale)))
+            line = Line(xyz, add_vectors(xyz, scale_vector(thrust_x, -scale)))
 
             self.add(
                 line,
@@ -132,7 +146,10 @@ class VaultPlotter(Plotter):
 
         for node in network.nodes():
 
-            block = vault.blocks[node]
+            block = vault.blocks.get(node)
+            if block is None:
+                continue
+
             point = Point(*network.node_coordinates(node))
 
             # Check intrados
