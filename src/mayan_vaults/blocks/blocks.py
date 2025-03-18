@@ -3,18 +3,22 @@ from compas.geometry import Polygon
 from compas.geometry import Point
 from compas.geometry import Line
 from compas.geometry import Plane
+from compas.geometry import centroid_points
+from compas.geometry import cross_vectors
+from compas.geometry import intersection_polyline_plane
+
+from compas.utilities import pairwise
 
 from mayan_vaults.blocks.slicing import slice_vault
-from mayan_vaults.blocks.slicing import create_slice_planes
-from mayan_vaults.blocks.slicing import create_slice_planes_by_block
+from mayan_vaults.blocks.slicing import create_slice_planes_by_block_horizontal
+from mayan_vaults.blocks.slicing import create_slice_planes_by_block_vertical
 
 
 class Block:
     """
-    A block is a 2D polygon representing a unit of a vault.
+    A block is a 2D polygon representing a unit of a masonry arch.
     """
-    def __init__(self, plane: Plane, line_bottom: Line, line_top: Line, density: float):
-        self.plane = plane
+    def __init__(self, line_bottom: Line, line_top: Line, density: float):        
         self.line_bottom = line_bottom
         self.line_top = line_top
         self.density = density
@@ -44,6 +48,37 @@ class Block:
         """
         return [self.line_bottom.start, self.line_top.start, self.line_top.end]
 
+    def centroid(self) -> Point:
+        """
+        The centroid of the block.
+        """
+        return centroid_points(self.points())
+    
+    def plane(self) -> Plane:
+        """
+        The plane of the block.
+        """
+        normal = cross_vectors(self.line_bottom.vector, [0.0, 0.0, 1.0])
+        
+        return Plane(self.centroid(), normal)
+    
+    def plane_line(self) -> Line:
+        """
+        The line of the plane of the block.
+        """        
+        points = self.points()
+        polyline = points + points[:1]
+
+        points = intersection_polyline_plane(
+            polyline,
+            self.plane(),
+            expected_number_of_intersections=2
+        )
+
+        assert len(points) == 2, f"Expected 2 points, got {len(points)}"
+
+        return Line(*points)
+    
     def polygon(self) -> Polygon:
         """
         The polygon of the block.
@@ -81,40 +116,49 @@ def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -
     The blocks are generated from the ground up by slicing the vault into 
     a prescribed number of blocks.
 
-    The slicing method can be either by meta block (0) or by height (1).
+    The slicing method one of:
+    - meta block horizontal (0)
+    - meta block vertical (1)
     """
     # Create slice planes
+    num_planes = num_blocks + 1
+
     if slicing_method == 0:
-        planes = create_slice_planes_by_block(vault, num_blocks)
-    elif slicing_method == 1:    
-        max_height = vault.wall_height + vault.corbel_height
-        print(f"Max height for slicing: {max_height}")
-        planes = create_slice_planes(vault, num_blocks, max_height)
+        planes = create_slice_planes_by_block_horizontal(vault, num_planes)    
+    elif slicing_method == 1:        
+        planes = create_slice_planes_by_block_vertical(vault, num_planes)
     else:
-        raise ValueError(f"Invalid slicing method: {slicing_method}")
+        raise ValueError(f"Invalid slicing method id: {slicing_method}")
 
     # Slice the vault to create lines
     slice_lines = slice_vault(vault, planes)
 
-    # Insert a line at the top of the vault
-    T = Translation.from_vector([0.0, vault.lintel_height, 0.0])
-    slice_line_top = slice_lines[-1].transformed(T)
-    slice_lines.append(slice_line_top)
-
     # Check slice lengths
     for i, line in enumerate(slice_lines):
-        assert line.length <= vault.width / 2.0
+        if slicing_method == 0:
+            assert line.length <= vault.width / 2.0
+        elif slicing_method == 1:
+            assert line.length <= vault.height
 
     # Create blocks from slice lines
     blocks = []
-    for i in range(num_blocks):
-        plane = planes[i]
-        line_bottom = slice_lines[i]
-        line_top = slice_lines[i + 1]
+    print(f"Num slice lines: {len(slice_lines)}")
+    for i, (line_bottom, line_top) in enumerate(pairwise(slice_lines)):
+        print(f"\ni: {i}")
+        print(f"line_bottom: {line_bottom}")
+        print(f"line_top: {line_top}")
 
-        block = Block(plane, line_bottom, line_top, density)
+        block = Block(line_bottom, line_top, density)
+        print(f"block: {block}")
+
+        if block.area() <= 0.0:
+            print(f"Block {i} has no area. Skipping.")
+            continue
+
         blocks.append(block)
 
+    # Check the number of blocks
+    print(f"Number of blocks: {len(blocks)} vs. requested: {num_blocks}")
     assert len(blocks) == num_blocks, "Number of blocks does not match!"
 
     # Reverse the blocks to match the node order
@@ -122,8 +166,6 @@ def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -
 
     # Assign blocks to nodes
     block_dict = {}
-    block_dict[0] = blocks[0]
-
     for i, block in enumerate(blocks):
         block_dict[i + 1] = block
 

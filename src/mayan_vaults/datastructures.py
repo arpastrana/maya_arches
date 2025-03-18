@@ -1,6 +1,9 @@
 from math import fabs
 
 from compas.geometry import add_vectors
+from compas.geometry import Plane
+from compas.geometry import Point
+from compas.geometry import Vector
 from compas.utilities import pairwise
 
 from compas_cem.diagrams import TopologyDiagram
@@ -37,16 +40,27 @@ def create_topology_from_vault(vault, px0: float = -1.0) -> TopologyDiagram:
 def add_nodes(topology: TopologyDiagram, vault) -> list[int]:
     """
     Add nodes to the topology diagram.
+
+    Notes
+    -----
+    The number of nodes is equal to the number of blocks plus two.
+    The first and the last nodes are special: 
+    they represent the origin and the support of a trail, respectively.
     """
-    num_blocks = len(vault.blocks) - 1
+    num_nodes = len(vault.blocks) + 2
+
     node_keys = []
-    for i in range(num_blocks + 1):
-        factor = 1.0 - i / (num_blocks)
-        point = [factor * vault.width * 0.5, vault.height, 0.0]
+    for i in range(num_nodes):
+        factor = 1.0 - i / (num_nodes - 1)
+        point = [
+            factor * vault.width * 0.5, 
+            vault.height - vault.lintel_height * 0.5, 
+            0.0
+            ]
         key = topology.add_node(Node(i, point))
         node_keys.append(key)
 
-    assert (len(node_keys)) == len(vault.blocks), f"nodes: {len(node_keys)} vs. {len(vault.blocks)}"
+    assert (len(node_keys)) == len(vault.blocks) + 2, f"Nodes: {len(node_keys)} vs. {len(vault.blocks) + 2}"
 
     return node_keys
 
@@ -69,25 +83,31 @@ def add_loads(topology: TopologyDiagram, vault, node_keys: list[int], px0: float
     """
     Add loads to the topology diagram.
     """
-    node_keys_lintel = node_keys[:2]
+    # node_keys_lintel = node_keys[:1]
 
     # Apply vertical loads to all nodes
     for key in topology.nodes():
-        block = vault.blocks[key]
+        
+        # skip nodes without a block (first and last nodes)
+        block = vault.blocks.get(key)
+        if block is None:
+            continue
+
         py = block.weight() * -1.0
 
         # Apply only a portion of the load to the lintel nodes
-        if key in node_keys_lintel:
-            py = py / len(node_keys_lintel)
+        # if key in node_keys_lintel:
+        #     py = py / len(node_keys_lintel)
 
         load = [0.0, py, 0.0]
         topology.add_load(NodeLoad(key, load))
 
-    # Add horizontal load to the first node
-    node_key_first = node_keys_lintel[0]    
+    # Add horizontal load to the first node    
+    node_key_first = node_keys[0]
     load_vector_first = add_vectors([px0, 0.0, 0.0], topology.node_load(node_key_first))
     load_first = NodeLoad(node_key_first, load_vector_first)
     topology.add_load(load_first)
+
 
 # ------------------------------------------------------------------------------
 # Add Trail Edges
@@ -97,8 +117,14 @@ def add_trail_edges(topology: TopologyDiagram, node_keys: list[int], vault) -> N
     """
     """
     for u, v in pairwise(node_keys):
-        block = vault.blocks[v]
-        topology.add_edge(TrailEdge(u, v, length=-1.0, plane=block.plane))
+        block = vault.blocks.get(v)
+        
+        if block is None:            
+            plane = Plane(Point(0.0, 0.0, 0.0), Vector(0.0, 1.0, 0.0))
+        else:
+            plane = block.plane()
+
+        topology.add_edge(TrailEdge(u, v, length=-1.0, plane=plane))
 
 
 # ------------------------------------------------------------------------------

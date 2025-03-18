@@ -2,83 +2,67 @@ from typing import List
 
 from compas.geometry import Line
 from compas.geometry import Plane
+from compas.geometry import Point
+from compas.geometry import Vector
 from compas.geometry import Translation
 from compas.geometry import intersection_polyline_plane
-from compas.geometry import allclose
+from compas.geometry import scale_vector
+from compas.geometry import add_vectors
+from mayan_vaults.blocks.helpers import estimate_num_objects_percentages
+from mayan_vaults.blocks.helpers import round_numbers_integer_sum
 
 
-def round_numbers_integer_sum(xs: List[float]) -> List[int]:
+# ------------------------------------------------------------------------------
+# Helper functions
+# ------------------------------------------------------------------------------
+
+def create_planes_linrange(origin_start: Point, direction: Vector, distance: float, num_planes: int) -> List[Plane]:
     """
-    Convert a series of floats to a sequence of integers, while preserving the total sum. 
-
-    Notes
-    -----
-    The input sequence of floats must add up to an integer.
-
-    Source: https://stackoverflow.com/questions/44737874/rounding-floats-while-maintaining-total-sum-equal
+    Creates a list of planes linearly distributed between a start and end plane.
     """
-    N = sum(xs)
-    Rs = [int(x) for x in xs]
-    K = N - sum(Rs)
-    assert allclose([K], [round(K)]), f"The input list does not add up to an integer. This is invalid. {K=} vs. {round(K)=}"
+    assert num_planes >= 2
 
-    if allclose([K], [0.0]):
-        return Rs
-
-    K = round(K)
-    fs = [x - int(x) for x in xs]
-    sorted_vals = sorted([(e, i) for i, e in enumerate(fs)], reverse=True)    
-
-    counter = 0
-    indices = []
-    for _, i in sorted_vals:
-        if counter < K:
-            indices.append(i)
-        counter += 1
+    planes = []
+    for i in range(num_planes):
+        factor = distance * (i / (num_planes - 1))
+        origin = add_vectors(origin_start, scale_vector(direction, factor))
         
-    ys = [R + 1 if i in indices else R for i, R in enumerate(Rs)]
+        planes.append(Plane(origin, direction))
 
-    assert allclose([N], [sum(ys)]), f"The sum of the rounded sequence is different from the sum of the inputs. Target: {N} vs. Current: {sum(ys)}"
+    return planes
 
-    return ys
+# ------------------------------------------------------------------------------
+# Horizontal slicing
+# ------------------------------------------------------------------------------
 
-
-def estimate_num_objects_percentages(values: List[float], num_objects: int, total: float = None) -> List[float]:
-    """
-    Assign a number of objects based on a sequence of values.
-    """
-    if not total:
-        total = sum(values)
-
-    return [num_objects * value / total for value in values]
-
-
-def create_slice_planes_by_block(vault, num_planes: int = 3) -> List[Line]:
+def create_slice_planes_by_block_horizontal(vault, num_planes: int = 4) -> List[Line]:
     """
     Slices a vault horizontally, creating planar line slices.
 
     Notes
     ------
     This function will first separate the vault into separate wall, corbel and lintel blocks.
-    The minimum number of slices is thus equal to 3.
+    The minimum number of slices is thus equal to 4.
 
-    Afterwards,if the number of slices is greater than 3, the slices will be
+    Afterwards, if the number of slices is greater than 4, the slices will be
     evenly distributed between the corbel and the wall.
 
     The lintel will remain as one block.
     """
-    num_planes_min = 3
+    num_planes_min = 4
     assert num_planes >= num_planes_min, f"The number of planes must be greater than or equal to {num_planes_min}"
 
     # Create planes
-    heights = [vault.wall_height, vault.corbel_height]
+    heights = [vault.wall_height, vault.corbel_height, vault.lintel_height]
+    print(f"heights: {heights}")
     num_meta_blocks = len(heights)
 
     # Minimum number of planes is 2 per segment
     num_planes_extra = num_planes - num_planes_min
 
     # Estimate number of planes per segment
-    weights = [height ** 2 for height in heights]
+    # TODO: Squaring the heights is hacky, find a better solution!
+    weights = [height ** 2 for height in heights]  
     num_planes_per_segment = estimate_num_objects_percentages(weights, num_planes_extra)
     count_extra = round_numbers_integer_sum(num_planes_per_segment)
 
@@ -90,14 +74,22 @@ def create_slice_planes_by_block(vault, num_planes: int = 3) -> List[Line]:
     planes = []
     planes.append(Plane([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]))
 
+    _height_previous = 0.0
     for i in range(num_meta_blocks):
         _num_planes = num_planes_per_segment[i]
         _height = heights[i]
-        planes_meta_block = create_slice_planes(vault, _num_planes, _height)
+
+        planes_meta_block = create_planes_linrange(
+            Point(0.0, 0.0, 0.0),
+            Vector(0.0, 1.0, 0.0),
+            _height,
+            _num_planes
+        )
 
         # Translate the planes upwards
+        # TODO: Remove this once the planes linrange is fixed
         if i > 0:
-            _height_previous = heights[i - 1]
+            _height_previous = heights[i - 1] + _height_previous
             T = Translation.from_vector([0.0, _height_previous, 0.0])
             planes_meta_block = [plane.transformed(T) for plane in planes_meta_block]
 
@@ -109,62 +101,113 @@ def create_slice_planes_by_block(vault, num_planes: int = 3) -> List[Line]:
     return planes
 
 
-def create_slice_planes(vault, num_planes: int = 2, max_height: float = None) -> List[Line]:
+# ------------------------------------------------------------------------------
+# Vertical slicing
+# ------------------------------------------------------------------------------
+
+def create_slice_planes_by_block_vertical(vault, num_planes: int = 2) -> List[Line]:
     """
-    Slices a vault horizontally, creating planar line slices.
+    Slices a vault vertically, creating planar line slices.
 
     Notes
     ------
-    This function will first separate the lintel block from the rest of the vault.
+    This function will first separate the vault into separate wall and span blocks.
     The minimum number of slices is thus equal to 2.
 
-    If the number of slices is greater than 2, the slices will be
-    evenly distributed between the base of the vault and the base of the lintel.
+    Afterwards, if the number of slices is greater than 2, the slices will be
+    evenly distributed between the base of the vault and the base of the span.
+
+    The lintel will be sliced as well.
     """
-    assert num_planes >= 2
+    num_planes_min = 3
+    assert num_planes >= num_planes_min, f"The number of planes must be greater than or equal to {num_planes_min}"
 
-    if not max_height:
-        max_height = vault.wall_height + vault.corbel_height
+    print(f"num_planes: {num_planes}")
+    # Create planes    
+    widths = [vault.wall_width, vault.span_half]
+    num_meta_blocks = len(widths)
 
+    # Minimum number of planes is 2 per segment
+    num_planes_extra = num_planes - num_planes_min
+
+    # Estimate number of planes per segment    
+    weights = [width for width in widths]
+    num_planes_per_segment = estimate_num_objects_percentages(weights, num_planes_extra)
+    count_extra = round_numbers_integer_sum(num_planes_per_segment)
+
+    # Add extra number of planes to the minimum
+    num_planes_per_segment_min = 2
+    num_planes_per_segment = [num_planes_per_segment_min + c_extra for c_extra in count_extra]
+    print(f"num_planes_per_segment: {num_planes_per_segment}")
+
+    # Create planes    
     planes = []
-    for i in range(num_planes):
-        factor = i / (num_planes - 1)
-        point = [0.0, factor * max_height, 0.0]
-        planes.append(Plane(point, [0.0, 1.0, 0.0]))
+    planes.append(Plane([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]))
+
+    _width_previous = 0.0
+    for i in range(num_meta_blocks):
+        _num_planes = num_planes_per_segment[i]
+        _width = widths[i]
+        
+        planes_meta_block = create_planes_linrange(
+            Point(0.0, 0.0, 0.0),
+            Vector(1.0, 0.0, 0.0),
+            _width,
+            _num_planes
+        )
+
+        # TODO: Remove this once the planes linrange is fixed
+        # Translate the planes to the right
+        if i > 0:
+            _width_previous = widths[i - 1] + _width_previous
+            T = Translation.from_vector([_width_previous, 0.0, 0.0])
+            planes_meta_block = [plane.transformed(T) for plane in planes_meta_block]
+
+        planes_meta_block.pop(0)
+        planes.extend(planes_meta_block)
+        print(f"Num planes: {len(planes)}")
+
+    print(f"Number of planes generated: {len(planes)} vs. requested: {num_planes}")
+    assert len(planes) == num_planes, f"Number of planes does not match: {len(planes)} != {num_planes}"
 
     return planes
 
 
+# ------------------------------------------------------------------------------
+# Caller functions
+# ------------------------------------------------------------------------------
+
 def slice_vault(vault, planes: List[Plane]) -> List[Line]:
     """
-    Slices a vault horizontally, creating planar line slices.
-
-    Notes
-    ------
-    This function will first separate the vault into separate wall, corbel and lintel blocks.
-    The minimum number of slices is thus equal to 3.
-
-    Afterwards,if the number of slices is greater than 3, the slices will be
-    evenly distributed between the corbel and the wall.
-
-    The lintel will remain as one block.
+    Slices a vault with a sequence of planes.
     """
     lines = []
     polyline = vault.polyline()
-    for plane in planes:
+
+    for i, plane in enumerate(planes):
+        print(f"Plane {i}: {plane}")
+
         _points = intersection_polyline_plane(
             polyline,
             plane,
             expected_number_of_intersections=3
         )
+        
         points = []
-        for point in _points:
+        for point in _points:         
             if point not in points:
                 points.append(point)
 
-        assert len(points) == 2, f"Found {len(points)} points, I need only 2"
-        points = sorted(points, key=lambda pt: pt[0])
+        # Sort the points by coordinate y        
+        points = sorted(points, key=lambda pt: pt[1])
 
-        lines.append(Line(*points))
+        # TODO: This is a hack, find a better solution!        
+        if len(points) > 2:
+            print(f"Found {len(points)} points with plane {i}. Creating {len(points) - 2} extra lines.")            
+            point_base = points.pop()
+            for point in points:
+                lines.append(Line(point, point_base))
+        else:
+            lines.append(Line(*points))
 
     return lines
