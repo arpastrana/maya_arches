@@ -126,10 +126,10 @@ class HalfMayanVault2D(MayanVault):
         Checks if the height of the vault makes sense.
         """
         msg = "The height of the vault is smaller than the wall's and the lintel's combined!"
-        assert self.height > (self.wall_height + self.lintel_height), msg
+        assert self.height >= (self.wall_height + self.lintel_height), msg
 
         if self.lintel_height > self.wall_height:
-            print("\nWarning! The lintel is taller than the walls")
+            print("\nWarning! The lintel is deeper than the walls")
 
 
 # ------------------------------------------------------------------------------
