@@ -5,7 +5,7 @@ from compas.geometry import Plane
 from compas.geometry import centroid_points
 from compas.geometry import cross_vectors
 from compas.geometry import intersection_polyline_plane
-
+from compas.geometry import allclose
 from compas.utilities import pairwise
 
 from mayan_vaults.blocks.slicing import slice_vault
@@ -142,15 +142,16 @@ def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -
     blocks = []
     for i, (line_bottom, line_top) in enumerate(pairwise(slice_lines)):
         block = Block(line_bottom, line_top, density)
-
-        if block.area() <= 0.0:
+        
+        # Check if the block has no area
+        if allclose([block.area()], [0.0]):
             print(f"Block {i} has no area. Skipping...\n")
             continue
 
         blocks.append(block)
 
     # Check the number of blocks
-    assert len(blocks) == num_blocks, "Number of blocks does not match!"
+    assert len(blocks) == num_blocks, f"Number of blocks does not match! Expected {num_blocks}, got {len(blocks)}"
 
     # Reverse the blocks to match the node order
     blocks = blocks[::-1]
