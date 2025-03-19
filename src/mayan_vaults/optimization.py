@@ -118,7 +118,7 @@ def calculate_params_bounds(vault, tol: float) -> list[tuple[float, float]]:
     """
     Calculate the bounds for the parameters.
     """
-    load_bounds = [(-1000.0, 0.0)]  # Load on x always nonpositive
+    load_bounds = [(-1000.0, -tol)]  # Load on x always nonpositive
     y_bounds = [(vault.height - vault.lintel_height + tol, vault.height - tol)]
     bounds = load_bounds + y_bounds
 
@@ -187,8 +187,7 @@ def calculate_constraint_position(
         _ub = end.y
 
         if start.y <= 0.0:
-            if not skip_block_support:
-                print(f"Node {key} is at the base. Setting lb to zmin")
+            if not skip_block_support:                
                 _lb = -vault.height * 5.0
             skip_block_support = False
 
@@ -483,12 +482,13 @@ def constraints_evaluate_solution(
     Evaluates a list of nonlinear optimization constraints at the optimization result.
     """
     print("\nEvaluating constraints at solution")
+    tol = 1e-6
 
     for i, constraint in enumerate(constraints):
         cval = constraint.fun(result.x)
         lval = cval - constraint.lb
         uval = constraint.ub - cval
-        lval = jnp.abs(jnp.sum(jnp.where(lval <= 0.0, lval, 0.0)))
-        uval = jnp.abs(jnp.sum(jnp.where(uval <= 0.0, uval, 0.0)))
-        print(f"\tConstraint {i}\tLower: {lval:.2f} Upper: {uval:.2f}")
+        lval = "Ok" if jnp.abs(jnp.sum(jnp.where(lval <= 0.0, lval, 0.0))) < tol else "Failed"
+        uval = "Ok" if jnp.abs(jnp.sum(jnp.where(uval <= 0.0, uval, 0.0))) < tol else "Failed"
+        print(f"\tConstraint group {i}\tLower: {lval}\tUpper: {uval}")
     print()
