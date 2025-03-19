@@ -7,6 +7,7 @@ from warnings import warn
 from math import fabs
 
 from typing import Callable
+from typing import List
 
 from functools import partial
 
@@ -17,8 +18,6 @@ import equinox as eqx
 from jax import jit
 from jax import jacfwd
 from jax import value_and_grad
-
-from jax.debug import print as jax_print
 
 from scipy.optimize import NonlinearConstraint
 from scipy.optimize import OptimizeResult
@@ -187,11 +186,11 @@ def calculate_constraint_position(
         _lb = start.y
         _ub = end.y
 
-        # if start.y <= 0.0:
-        #     if not skip_block_support:
-        #         print(f"Node {key} is at the base. Setting lb to -inf\n")
-        #         _lb = -float("inf")
-        #     skip_block_support = False
+        if start.y <= 0.0:
+            if not skip_block_support:
+                print(f"Node {key} is at the base. Setting lb to zmin")
+                _lb = -vault.height * 5.0
+            skip_block_support = False
 
         lb.append(_lb)
         ub.append(_ub)
@@ -219,7 +218,10 @@ def calculate_constraint_position(
 # Constraints thrust
 # ------------------------------------------------------------------------------
 
-def constraint_thrust_fn(params: jax.Array, model: EquilibriumModel, structure: EquilibriumStructure) -> jax.Array:
+def constraint_thrust_fn(
+        params: jax.Array,
+        model: EquilibriumModel,
+        structure: EquilibriumStructure) -> jax.Array:
     """
     The constraint function to ensure the thrust fits within the vault.
     """
@@ -331,6 +333,9 @@ def solve_thrust_opt(
         callback=None
     )
 
+    # Evaluate constraints
+    constraints_evaluate_solution(constraints, result)
+
     return result
 
 
@@ -375,7 +380,7 @@ def solve_thrust_minmax_vault(
     results = {}
     solve_fns = {
         "min": solve_thrust_opt_min,
-        # "max": solve_thrust_opt_max
+        "max": solve_thrust_opt_max
         }
 
     for solve_fn_name, solve_fn in solve_fns.items():
@@ -469,3 +474,21 @@ def test_thrust_opt_result(network: ThrustNetwork, vault, result: OptimizeResult
     load_sum_x = network.load_sum_horizontal(keys)
     msg = "The network has an undesired horizontal loads"
     assert jnp.allclose(load_sum_x, 0.0), msg
+
+
+def constraints_evaluate_solution(
+        constraints: List[NonlinearConstraint],
+        result: OptimizeResult) -> None:
+    """
+    Evaluates a list of nonlinear optimization constraints at the optimization result.
+    """
+    print("\nEvaluating constraints at solution")
+
+    for i, constraint in enumerate(constraints):
+        cval = constraint.fun(result.x)
+        lval = cval - constraint.lb
+        uval = constraint.ub - cval
+        lval = jnp.abs(jnp.sum(jnp.where(lval <= 0.0, lval, 0.0)))
+        uval = jnp.abs(jnp.sum(jnp.where(uval <= 0.0, uval, 0.0)))
+        print(f"\tConstraint {i}\tLower: {lval:.2f} Upper: {uval:.2f}")
+    print()

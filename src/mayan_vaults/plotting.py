@@ -215,14 +215,14 @@ def plot_thrust_minmax_vault(
     plotter.plot_vault(vault, plot_other_half)
     plotter.plot_vault_blocks(vault)
 
-    for loss_fn_name, network in networks.items():    
+    plotter.zoom_extents()
+
+    for loss_fn_name, network in networks.items():
         linestyle = "solid" if loss_fn_name == "max" else "dashed"
         plotter.plot_thrust_network(network, linestyle=linestyle)
 
         if plot_constraints:
             plotter.plot_constraints(vault, network, tol_bounds)
-
-    plotter.zoom_extents()
 
     for loss_fn_name, network in networks.items():
         if plot_loads:
