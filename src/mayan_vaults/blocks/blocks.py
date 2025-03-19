@@ -1,4 +1,3 @@
-from compas.geometry import Translation
 from compas.geometry import Polygon
 from compas.geometry import Point
 from compas.geometry import Line
@@ -18,7 +17,7 @@ class Block:
     """
     A block is a 2D polygon representing a unit of a masonry arch.
     """
-    def __init__(self, line_bottom: Line, line_top: Line, density: float):        
+    def __init__(self, line_bottom: Line, line_top: Line, density: float):
         self.line_bottom = line_bottom
         self.line_top = line_top
         self.density = density
@@ -35,13 +34,13 @@ class Block:
         ]
 
         return points
-    
+
     def points_intrados(self) -> list[Point]:
         """
         The points of the intrados of the block.
         """
         return [self.line_bottom.end]
-    
+
     def points_extrados(self) -> list[Point]:
         """
         The points of the extrados of the block.
@@ -53,19 +52,19 @@ class Block:
         The centroid of the block.
         """
         return centroid_points(self.points())
-    
+
     def plane(self) -> Plane:
         """
         The plane of the block.
         """
         normal = cross_vectors(self.line_bottom.vector, [0.0, 0.0, 1.0])
-        
+
         return Plane(self.centroid(), normal)
-    
+
     def plane_line(self) -> Line:
         """
         The line of the plane of the block.
-        """        
+        """
         points = self.points()
         polyline = points + points[:1]
 
@@ -74,35 +73,34 @@ class Block:
             self.plane(),
             expected_number_of_intersections=2
         )
-
         assert len(points) == 2, f"Expected 2 points, got {len(points)}"
 
         return Line(*points)
-    
+
     def polygon(self) -> Polygon:
         """
         The polygon of the block.
         """
         return Polygon(self.points())
-    
+
     def area(self) -> float:
         """
         The area of the block.
         """
         return self.polygon().area
-    
+
     def weight(self) -> float:
         """
         The weight of the block.
         """
         return self.area() * self.density
-    
+
     def height(self) -> float:
         """
         The height of the block.
         """
         return self.line_top.midpoint.y - self.line_bottom.midpoint.y
-    
+
     def __repr__(self):
         return f"Block(area={self.area():.2f}, height={self.height():.2f})"
 
@@ -125,7 +123,7 @@ def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -
 
     if slicing_method == 0:
         planes = create_slice_planes_by_block_horizontal(vault, num_planes)    
-    elif slicing_method == 1:        
+    elif slicing_method == 1:
         planes = create_slice_planes_by_block_vertical(vault, num_planes)
     else:
         raise ValueError(f"Invalid slicing method id: {slicing_method}")
@@ -142,23 +140,16 @@ def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -
 
     # Create blocks from slice lines
     blocks = []
-    print(f"Num slice lines: {len(slice_lines)}")
     for i, (line_bottom, line_top) in enumerate(pairwise(slice_lines)):
-        print(f"\ni: {i}")
-        print(f"line_bottom: {line_bottom}")
-        print(f"line_top: {line_top}")
-
         block = Block(line_bottom, line_top, density)
-        print(f"block: {block}")
 
         if block.area() <= 0.0:
-            print(f"Block {i} has no area. Skipping.")
+            print(f"Block {i} has no area. Skipping...\n")
             continue
 
         blocks.append(block)
 
     # Check the number of blocks
-    print(f"Number of blocks: {len(blocks)} vs. requested: {num_blocks}")
     assert len(blocks) == num_blocks, "Number of blocks does not match!"
 
     # Reverse the blocks to match the node order
@@ -167,6 +158,7 @@ def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -
     # Assign blocks to nodes
     block_dict = {}
     for i, block in enumerate(blocks):
+        # Block keys start at 1 because node 0 is an origin node
         block_dict[i + 1] = block
 
     return block_dict

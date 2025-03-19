@@ -26,10 +26,11 @@ def create_planes_linrange(origin_start: Point, direction: Vector, distance: flo
     for i in range(num_planes):
         factor = distance * (i / (num_planes - 1))
         origin = add_vectors(origin_start, scale_vector(direction, factor))
-        
+
         planes.append(Plane(origin, direction))
 
     return planes
+
 
 # ------------------------------------------------------------------------------
 # Horizontal slicing
@@ -54,7 +55,6 @@ def create_slice_planes_by_block_horizontal(vault, num_planes: int = 4) -> List[
 
     # Create planes
     heights = [vault.wall_height, vault.corbel_height, vault.lintel_height]
-    print(f"heights: {heights}")
     num_meta_blocks = len(heights)
 
     # Minimum number of planes is 2 per segment
@@ -62,7 +62,7 @@ def create_slice_planes_by_block_horizontal(vault, num_planes: int = 4) -> List[
 
     # Estimate number of planes per segment
     # TODO: Squaring the heights is hacky, find a better solution!
-    weights = [height ** 2 for height in heights]  
+    weights = [height ** 2 for height in heights]
     num_planes_per_segment = estimate_num_objects_percentages(weights, num_planes_extra)
     count_extra = round_numbers_integer_sum(num_planes_per_segment)
 
@@ -70,7 +70,7 @@ def create_slice_planes_by_block_horizontal(vault, num_planes: int = 4) -> List[
     num_planes_per_segment_min = 2
     num_planes_per_segment = [num_planes_per_segment_min + c_extra for c_extra in count_extra]
 
-    # Create planes    
+    # Create planes
     planes = []
     planes.append(Plane([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]))
 
@@ -122,15 +122,14 @@ def create_slice_planes_by_block_vertical(vault, num_planes: int = 2) -> List[Li
     num_planes_min = 3
     assert num_planes >= num_planes_min, f"The number of planes must be greater than or equal to {num_planes_min}"
 
-    print(f"num_planes: {num_planes}")
-    # Create planes    
+    # Create planes
     widths = [vault.wall_width, vault.span_half]
     num_meta_blocks = len(widths)
 
     # Minimum number of planes is 2 per segment
     num_planes_extra = num_planes - num_planes_min
 
-    # Estimate number of planes per segment    
+    # Estimate number of planes per segment
     weights = [width for width in widths]
     num_planes_per_segment = estimate_num_objects_percentages(weights, num_planes_extra)
     count_extra = round_numbers_integer_sum(num_planes_per_segment)
@@ -138,9 +137,8 @@ def create_slice_planes_by_block_vertical(vault, num_planes: int = 2) -> List[Li
     # Add extra number of planes to the minimum
     num_planes_per_segment_min = 2
     num_planes_per_segment = [num_planes_per_segment_min + c_extra for c_extra in count_extra]
-    print(f"num_planes_per_segment: {num_planes_per_segment}")
 
-    # Create planes    
+    # Create planes
     planes = []
     planes.append(Plane([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]))
 
@@ -148,7 +146,7 @@ def create_slice_planes_by_block_vertical(vault, num_planes: int = 2) -> List[Li
     for i in range(num_meta_blocks):
         _num_planes = num_planes_per_segment[i]
         _width = widths[i]
-        
+
         planes_meta_block = create_planes_linrange(
             Point(0.0, 0.0, 0.0),
             Vector(1.0, 0.0, 0.0),
@@ -165,9 +163,7 @@ def create_slice_planes_by_block_vertical(vault, num_planes: int = 2) -> List[Li
 
         planes_meta_block.pop(0)
         planes.extend(planes_meta_block)
-        print(f"Num planes: {len(planes)}")
 
-    print(f"Number of planes generated: {len(planes)} vs. requested: {num_planes}")
     assert len(planes) == num_planes, f"Number of planes does not match: {len(planes)} != {num_planes}"
 
     return planes
@@ -185,25 +181,24 @@ def slice_vault(vault, planes: List[Plane]) -> List[Line]:
     polyline = vault.polyline()
 
     for i, plane in enumerate(planes):
-        print(f"Plane {i}: {plane}")
 
         _points = intersection_polyline_plane(
             polyline,
             plane,
             expected_number_of_intersections=3
         )
-        
+
         points = []
-        for point in _points:         
+        for point in _points:
             if point not in points:
                 points.append(point)
 
-        # Sort the points by coordinate y        
+        # Sort the points by coordinate y
         points = sorted(points, key=lambda pt: pt[1])
 
-        # TODO: This is a hack, find a better solution!        
+        # TODO: This is a hack, find a better solution!
         if len(points) > 2:
-            print(f"Found {len(points)} points with plane {i}. Creating {len(points) - 2} extra lines.")            
+            print(f"Found {len(points)} points with plane {i}. Creating {len(points) - 2} extra lines.\n")
             point_base = points.pop()
             for point in points:
                 lines.append(Line(point, point_base))
