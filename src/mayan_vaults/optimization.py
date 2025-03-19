@@ -18,6 +18,8 @@ from jax import jit
 from jax import jacfwd
 from jax import value_and_grad
 
+from jax.debug import print as jax_print
+
 from scipy.optimize import NonlinearConstraint
 from scipy.optimize import OptimizeResult
 from scipy.optimize import minimize
@@ -117,7 +119,7 @@ def calculate_params_bounds(vault, tol: float) -> list[tuple[float, float]]:
     """
     Calculate the bounds for the parameters.
     """
-    load_bounds = [(None, None)]
+    load_bounds = [(-1000.0, 0.0)]  # Load on x always nonpositive
     y_bounds = [(vault.height - vault.lintel_height + tol, vault.height - tol)]
     bounds = load_bounds + y_bounds
 
@@ -142,7 +144,7 @@ def constraint_position_fn(
     eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
 
     # extract y coordinates of all nodes but the first and last
-    x = eqstate.xyz[1:-1, 1]
+    x = eqstate.xyz[1:, 1]
 
     return x
 
@@ -166,10 +168,11 @@ def calculate_constraint_position(
 
     # NOTE: This is possible because the nodes in the structure are sorted by JAX CEM
     # Otherwise, we would need to use an index_node mapping to get the block
+    skip_block_support = True
     for key in structure.nodes:
 
-        # The first and last nodes are box constrained
-        if key in (0, len(structure.nodes) - 1):
+        # The first node is box constrained
+        if key == 0:
             continue
 
         block = vault.blocks[key]
@@ -181,8 +184,17 @@ def calculate_constraint_position(
         if start.y > end.y:
             start, end = end, start
 
-        lb.append(start.y)
-        ub.append(end.y)
+        _lb = start.y
+        _ub = end.y
+
+        # if start.y <= 0.0:
+        #     if not skip_block_support:
+        #         print(f"Node {key} is at the base. Setting lb to -inf\n")
+        #         _lb = -float("inf")
+        #     skip_block_support = False
+
+        lb.append(_lb)
+        ub.append(_ub)
 
     lb = jnp.array(lb)
     ub = jnp.array(ub)
@@ -215,14 +227,24 @@ def constraint_thrust_fn(params: jax.Array, model: EquilibriumModel, structure: 
     model = rebuild_model_from_params(params, model)
 
     # calculate equilibrium state
-    eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
+    eqstate = model(structure, tmax=1)
 
-    # extract x coordinate of last node
-    node_index = -1 
+    # extract xyz coordinates of last node
+    node_index = -1
+    xyz = eqstate.xyz[node_index, :]
 
-    x = eqstate.xyz[node_index, 0]
+    # extract reaction force on last node
+    reaction = eqstate.reactions[node_index, :]
 
-    return x
+    # project reaction ray onto normal plane on the ground
+    normal = jnp.array([0.0, 1.0, 0.0])
+    scale = (-xyz @ normal) / (reaction @ normal)
+    intersection = xyz + scale * reaction
+
+    # get x component of intersection
+    delta = intersection[:1]
+
+    return delta
 
 
 def calculate_constraint_thrust(
@@ -240,7 +262,7 @@ def calculate_constraint_thrust(
 
     # Calculate bounds
     lb = [0.0]
-    ub = [vault.wall_width]  # NOTE: Check if using x coordinate of the last node is better
+    ub = [vault.wall_width]
 
     lb = jnp.array(lb)
     ub = jnp.array(ub)
@@ -339,7 +361,7 @@ def solve_thrust_minmax_vault(
     Solve the thrust minimization and maximization problems for a given vault geometry.
     """
     # Instantiate a topology diagram
-    topology = create_topology_from_vault(vault, px0=-10.0)
+    topology = create_topology_from_vault(vault, px0=-5.0)
 
     # JAX CEM - form finding
     structure = EquilibriumStructure.from_topology_diagram(topology)
@@ -353,7 +375,7 @@ def solve_thrust_minmax_vault(
     results = {}
     solve_fns = {
         "min": solve_thrust_opt_min,
-        "max": solve_thrust_opt_max
+        # "max": solve_thrust_opt_max
         }
 
     for solve_fn_name, solve_fn in solve_fns.items():
@@ -364,7 +386,7 @@ def solve_thrust_minmax_vault(
             params0,
             model,
             structure,
-            maxiter=maxiter,            
+            maxiter=maxiter,
             tol=tol,
             tol_bounds=tol_bounds
         )
@@ -372,8 +394,6 @@ def solve_thrust_minmax_vault(
         if not result.success:
             warn("Optimization failed\n")
             print(result)
-
-        print(result)
 
         # Generate thrust network
         network = create_thrust_network_from_opt_result(result, model, structure)
@@ -403,8 +423,8 @@ def solve_thrust_minmax_vault(
 # ------------------------------------------------------------------------------
 
 def create_thrust_network_from_opt_result(
-        result: OptimizeResult, 
-        model: EquilibriumModel, 
+        result: OptimizeResult,
+        model: EquilibriumModel,
         structure: EquilibriumStructure,
         cls: type[ThrustNetwork] = ThrustNetwork2D
         ) -> ThrustNetwork:

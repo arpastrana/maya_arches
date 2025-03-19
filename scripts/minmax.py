@@ -13,7 +13,7 @@ def run_minmax_experiment():
     Run a thrust minimization and maximization experiment.
     """
     # load yaml file with hyperparameters
-    with open(f"minmax.yml") as file:
+    with open("minmax.yml") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
     vault = create_vault(**config["vault"])

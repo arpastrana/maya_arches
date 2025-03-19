@@ -14,7 +14,7 @@ optimization:
   maxiter: 100  # maximum number of iterations
 
 plotting:
-  forcescale: 0.5
+  forcescale: 0.25
   tol_bounds: 1.0e-3
   plot_constraints: True
   plot_other_half: True
