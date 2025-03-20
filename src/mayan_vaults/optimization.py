@@ -188,7 +188,7 @@ def calculate_constraint_position(
 
         if start.y <= 0.0:
             if not skip_block_support:                
-                _lb = -vault.height * 5.0
+                _lb = -vault.height * 10.0
             skip_block_support = False
 
         lb.append(_lb)
