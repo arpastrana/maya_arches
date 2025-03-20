@@ -13,8 +13,12 @@ from compas.geometry import Polyline
 from compas.geometry import add_vectors
 from compas.geometry import scale_vector
 from compas.geometry import distance_point_point_sqrd
+from compas.geometry import intersection_segment_plane
+
+from compas.utilities import pairwise
 
 from compas_plotters import Plotter
+from compas_plotters.artists import NetworkArtist
 
 from mayan_vaults import FIGURES
 from mayan_vaults.vaults import MayanVault
@@ -67,12 +71,17 @@ class VaultPlotter(Plotter):
                 zorder=50,
             )
 
+    def plot_vault_blocks_lines(self, vault) -> None:
+        """
+        Plot the vault blocks lines.
+        """
+        for block in vault.blocks.values():
             self.add(
                 block.plane_line(),
                 draw_as_segment=True,
-                linestyle="dotted",
-                color=Color.black(),
-                lineweight=1.0,
+                linestyle="solid",
+                color=Color.from_rgb255(240, 240, 240),  # Color.grey(),
+                lineweight=0.1,
                 zorder=100
             )
 
@@ -87,7 +96,21 @@ class VaultPlotter(Plotter):
         Plot the thrust network as a polyline.
         """
         node_keys = list(range(network.number_of_nodes()))
-        polyline = Polyline([network.node_coordinates(node) for node in node_keys])
+
+        points = [network.node_coordinates(node_keys[0])]
+        plane = Plane((0.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+
+        for edge in pairwise(node_keys):
+            segment = [network.node_coordinates(node) for node in edge]
+
+            intersection = intersection_segment_plane(segment, plane)
+            if intersection is not None:            
+                points.append(intersection)
+                break
+
+            points.append(segment[1])
+
+        polyline = Polyline(points)
 
         self.add(
             polyline,
@@ -96,15 +119,6 @@ class VaultPlotter(Plotter):
             color=color,
             linewidth=linewidth,
             zorder=1000
-        )
-
-        self.add(
-            network,
-            show_edges=False,
-            show_nodes=True,
-            show_loads=False,
-            show_reactions=False,
-            nodesize=0.5
         )
 
     def plot_thrust_network_loads(self, network, scale: float = 1.0) -> None:
@@ -158,9 +172,35 @@ class VaultPlotter(Plotter):
         """
         Plot the constraints.
         """
-        color_constraint_extrados = Color.from_rgb255(250, 80, 210)
-        color_constraint_intrados = Color.orange()
+        color_constraint_lower = Color.from_rgb255(250, 80, 210)
+        color_constraint_upper = Color.orange()
 
+        # First node
+        node_key = 0
+        point = Point(*network.node_coordinates(node_key))       
+        # Check lower bound
+        print(point.y, vault.height - vault.lintel_height + tol)
+        print(point.y, vault.height - tol)
+
+        if point.y <= (vault.height - vault.lintel_height + tol):
+            print("point 0 hits lower bound")
+            self.add(
+                    point,
+                    size=pointsize,
+                    facecolor=color_constraint_lower,
+                    zorder=2000
+                )
+        elif point.y >= (vault.height - tol):
+            print("point 0 hits upper bound")
+            self.add(
+                    point,
+                    size=pointsize,
+                    facecolor=color_constraint_upper,
+                    zorder=2000
+                )
+
+
+        # Intermediate nodes
         for node in network.nodes():
 
             block = vault.blocks.get(node)
@@ -169,26 +209,42 @@ class VaultPlotter(Plotter):
 
             point = Point(*network.node_coordinates(node))
 
-            # Check intrados
-            for point_intrados in block.points_intrados():
-                if distance_point_point_sqrd(point, point_intrados) <= tol:
-                    self.add(
-                        point,
-                        size=pointsize,
-                        facecolor=color_constraint_intrados,
-                        zorder=2000
-                    )
+            # Check constraint plane line
+            plane_line = block.plane_line()
+            start = plane_line.start
+            end = plane_line.end
 
-            # Check extrados
-            for point_extrados in block.points_extrados():
-                if distance_point_point_sqrd(point, point_extrados) <= tol:
-                    self.add(
-                        point,
-                        size=pointsize,
-                        facecolor=color_constraint_extrados,
-                        zorder=2000
-                    )
+            if start.y > end.y:
+                start, end = end, start
 
+            # Check lower bound            
+            if point.y > 0.0 and distance_point_point_sqrd(point, start) <= tol:
+                self.add(
+                    point,
+                    size=pointsize,
+                    facecolor=color_constraint_lower,
+                    zorder=2000
+                )
+
+            # Check upper bound            
+            if distance_point_point_sqrd(point, end) <= tol:
+                self.add(
+                    point,
+                    size=pointsize,
+                    facecolor=color_constraint_upper,
+                    zorder=2000
+                )
+
+# ------------------------------------------------------------------------------
+# Artists
+# ------------------------------------------------------------------------------
+
+class ThrustNetworkArtist(NetworkArtist):
+    """
+    A wrapper around the compas network artist to plot a thrust network.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 # ------------------------------------------------------------------------------
 # Experiment code
@@ -198,6 +254,8 @@ def plot_thrust_minmax_vault(
         vault: MayanVault, 
         networks: dict,
         plot_other_half: bool = True,
+        plot_blocks: bool = True,
+        plot_blocks_lines: bool = True,
         plot_constraints: bool = True,
         plot_loads: bool = True,
         plot_thrusts: bool = True,
@@ -213,18 +271,23 @@ def plot_thrust_minmax_vault(
     plotter = VaultPlotter(figsize=(8, 8))
 
     plotter.plot_vault(vault, plot_other_half)
-    plotter.plot_vault_blocks(vault)
+
+    if plot_blocks:
+        plotter.plot_vault_blocks(vault)
+
+    if plot_blocks_lines:
+        plotter.plot_vault_blocks_lines(vault)
 
     plotter.zoom_extents()
 
     for loss_fn_name, network in networks.items():
         linestyle = "solid" if loss_fn_name == "max" else "dashed"
+
         plotter.plot_thrust_network(network, linestyle=linestyle)
 
         if plot_constraints:
             plotter.plot_constraints(vault, network, tol_bounds)
 
-    for loss_fn_name, network in networks.items():
         if plot_loads:
             plotter.plot_thrust_network_loads(network, forcescale)
 
