@@ -4,8 +4,8 @@ vault:
   wall_height: 4.5
   wall_width: 2.5
   lintel_height: 1.0
-  num_blocks: 20
-  slicing_method: 0  # 0: block, 1: uniform height
+  num_blocks: 30
+  slicing_method: 1  # 0: block horizontal, 1 block vertical
   block_density: 1.0
 
 optimization:
@@ -16,9 +16,11 @@ optimization:
 plotting:
   forcescale: 0.25
   tol_bounds: 1.0e-3
+  plot_blocks: False
+  plot_blocks_lines: True
   plot_constraints: True
   plot_other_half: True
-  plot_loads: True
+  plot_loads: False
   plot_thrusts: True
   save_plot: False
   show_plot: True
