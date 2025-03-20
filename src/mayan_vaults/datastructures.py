@@ -1,6 +1,7 @@
 from math import fabs
 
 from compas.geometry import add_vectors
+from compas.geometry import Plane
 from compas.utilities import pairwise
 
 from compas_cem.diagrams import TopologyDiagram
@@ -23,8 +24,8 @@ def create_topology_from_vault(vault, px0: float = -1.0) -> TopologyDiagram:
 
     node_keys = add_nodes(topology, vault)
     add_loads(topology, vault, node_keys, px0)
-    add_trail_edges(topology, node_keys, vault)
     add_supports(topology, node_keys)
+    add_trail_edges(topology, node_keys, vault)
 
     topology.build_trails(auxiliary_trails=False)
 
@@ -45,7 +46,7 @@ def add_nodes(topology: TopologyDiagram, vault) -> list[int]:
     The first and the last nodes are special:
     they represent the origin and the support of a trail, respectively.
     """
-    num_nodes_extra = 1
+    num_nodes_extra = 2
     num_nodes = len(vault.blocks) + num_nodes_extra
 
     node_keys = []
@@ -114,10 +115,12 @@ def add_loads(topology: TopologyDiagram, vault, node_keys: list[int], px0: float
 def add_trail_edges(topology: TopologyDiagram, node_keys: list[int], vault) -> None:
     """
     """
-    for u, v in pairwise(node_keys):
-
-        block = vault.blocks.get(v)
-        plane = block.plane()
+    for u, v in pairwise(node_keys):        
+        if topology.is_node_support(v):            
+            plane = Plane((0.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+        else:
+            block = vault.blocks.get(v)
+            plane = block.plane()
 
         topology.add_edge(TrailEdge(u, v, length=-1.0, plane=plane))
 
