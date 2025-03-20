@@ -1,4 +1,8 @@
 import os
+from typing import Union
+from typing import Tuple
+
+from math import fabs
 
 import matplotlib.pyplot as plt
 
@@ -7,9 +11,9 @@ from compas.colors import Color
 from compas.geometry import Plane
 from compas.geometry import Reflection
 from compas.geometry import Point
-from compas.geometry import Line
 from compas.geometry import Vector
 from compas.geometry import Polyline
+from compas.geometry import Line
 from compas.geometry import add_vectors
 from compas.geometry import scale_vector
 from compas.geometry import distance_point_point_sqrd
@@ -88,7 +92,7 @@ class VaultPlotter(Plotter):
     def plot_thrust_network(
             self,
             network,
-            linewidth: float = 3.0,
+            linewidth: Union[float, Tuple[float, float]] = 3.0,
             linestyle: str = "solid",
             color: Color = Color.from_rgb255(12, 119, 184),
             ) -> None:
@@ -96,30 +100,59 @@ class VaultPlotter(Plotter):
         Plot the thrust network as a polyline.
         """
         node_keys = list(range(network.number_of_nodes()))
+        points = {0: network.node_coordinates(node_keys[0])}
 
-        points = [network.node_coordinates(node_keys[0])]
+        # Intersect the thrust network with the ground plane
         plane = Plane((0.0, 0.0, 0.0), (0.0, 1.0, 0.0))
-
         for edge in pairwise(node_keys):
+            _, v = edge
             segment = [network.node_coordinates(node) for node in edge]
 
             intersection = intersection_segment_plane(segment, plane)
             if intersection is not None:            
-                points.append(intersection)
+                points[v] = intersection
                 break
 
-            points.append(segment[1])
+            _, end = segment
+            points[v] = end
 
-        polyline = Polyline(points)
+        # Calculate line widths
+        if isinstance(linewidth, (int, float)):
+            edgewidth = {edge: linewidth for edge in network.edges()}
+        else:
+            edgewidth = {}
+            low, high = linewidth
+            forces = [fabs(network.edge_force(edge)) for edge in network.edges()]
+            forcemin = min(forces)
+            forcemax = max(forces)
 
-        self.add(
-            polyline,
-            draw_points=False,
-            linestyle=linestyle,
-            color=color,
-            linewidth=linewidth,
-            zorder=1000
-        )
+            for edge in network.edges():
+                force = fabs(network.edge_force(edge))
+                try:
+                    ratio = (force - forcemin) / (forcemax - forcemin)
+                except ZeroDivisionError:
+                    ratio = 1.0
+                width = (1.0 - ratio) * low + ratio * high
+                edgewidth[edge] = width
+
+        # Draw the thrusts edges
+        for edge in network.edges():
+            u, v = edge
+            start = points.get(u)
+            end = points.get(v)
+
+            if start is None or end is None:
+                continue
+
+            self.add(
+                Line(start, end),
+                draw_points=False,
+                draw_as_segment=True,
+                linestyle=linestyle,
+                color=color,
+                linewidth=edgewidth[edge],
+                zorder=1000
+            )
 
     def plot_thrust_network_loads(self, network, scale: float = 1.0) -> None:
         """
@@ -179,26 +212,21 @@ class VaultPlotter(Plotter):
         node_key = 0
         point = Point(*network.node_coordinates(node_key))       
         # Check lower bound
-        print(point.y, vault.height - vault.lintel_height + tol)
-        print(point.y, vault.height - tol)
-
-        if point.y <= (vault.height - vault.lintel_height + tol):
-            print("point 0 hits lower bound")
+        if point.y <= (vault.height - vault.lintel_height + tol)
             self.add(
                     point,
                     size=pointsize,
                     facecolor=color_constraint_lower,
                     zorder=2000
                 )
+        # Check upper bound
         elif point.y >= (vault.height - tol):
-            print("point 0 hits upper bound")
             self.add(
                     point,
                     size=pointsize,
                     facecolor=color_constraint_upper,
                     zorder=2000
                 )
-
 
         # Intermediate nodes
         for node in network.nodes():
@@ -281,9 +309,9 @@ def plot_thrust_minmax_vault(
     plotter.zoom_extents()
 
     for loss_fn_name, network in networks.items():
-        linestyle = "solid" if loss_fn_name == "max" else "dashed"
+        linestyle = "solid" if loss_fn_name == "max" else "solid"
 
-        plotter.plot_thrust_network(network, linestyle=linestyle)
+        plotter.plot_thrust_network(network, linestyle=linestyle, linewidth=(2, 7))
 
         if plot_constraints:
             plotter.plot_constraints(vault, network, tol_bounds)
