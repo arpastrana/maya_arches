@@ -142,8 +142,11 @@ def constraint_position_fn(
     # calculate equilibrium state
     eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
 
+    # extract y coordinates of all nodes but the first
+    # x = eqstate.xyz[1:, 1]
+
     # extract y coordinates of all nodes but the first and last
-    x = eqstate.xyz[1:, 1]
+    x = eqstate.xyz[1:-1, 1]
 
     return x
 
@@ -172,6 +175,10 @@ def calculate_constraint_position(
 
         # The first node is box constrained
         if key == 0:
+            continue
+
+        # The last node (support) is constrained differently
+        if key == len(structure.nodes) - 1:
             continue
 
         block = vault.blocks[key]
@@ -285,6 +292,66 @@ def calculate_constraint_thrust(
 
 
 # ------------------------------------------------------------------------------
+# Constraints position support
+# ------------------------------------------------------------------------------
+
+def constraint_position_support_fn(
+        params: jax.Array,
+        model: EquilibriumModel,
+        structure: EquilibriumStructure) -> jax.Array:
+    """
+    The constraint function to ensure the support fits within the vault.
+    """
+    # reassemble model
+    model = rebuild_model_from_params(params, model)
+
+    # calculate equilibrium state
+    eqstate = model(structure, tmax=1)
+
+    # extract x coordinate of last node
+    node_index = -1 
+    x = eqstate.xyz[node_index, 0]
+
+    return x
+
+
+def calculate_constraint_position_support(
+        vault,
+        model: EquilibriumModel,
+        structure: EquilibriumStructure,
+        params0: jax.Array) -> NonlinearConstraint:
+    """
+    Generate the nonlinear constraint object for the optimization.
+    """
+    partial_constraint_fn = jit(partial(constraint_position_support_fn, model=model, structure=structure))
+
+    # Warm start
+    _ = partial_constraint_fn(params0)
+
+    # Calculate bounds
+    lb = [0.0]
+    ub = [vault.wall_width]
+
+    lb = jnp.array(lb)
+    ub = jnp.array(ub)
+
+    jac_fn = jit(jacfwd(partial_constraint_fn))
+
+    # Warm start
+    _ = jac_fn(params0)
+
+    constraint = NonlinearConstraint(
+        fun=partial_constraint_fn,
+        lb=lb,
+        ub=ub,
+        jac=jac_fn,
+        keep_feasible=False
+    )
+
+    return constraint
+
+
+# ------------------------------------------------------------------------------
 # Solvers
 # ------------------------------------------------------------------------------
 
@@ -311,11 +378,13 @@ def solve_thrust_opt(
 
     # Generate inequality constraints
     constraint_position = calculate_constraint_position(vault, model, structure, params0)
-    constraint_thrust = calculate_constraint_thrust(vault, model, structure, params0)
+    # constraint_thrust = calculate_constraint_thrust(vault, model, structure, params0)
+    constraint_position_support = calculate_constraint_position_support(vault, model, structure, params0)
 
     constraints = [
         constraint_position,
-        constraint_thrust
+        # constraint_thrust,
+        constraint_position_support
         ]
 
     # Optimize
