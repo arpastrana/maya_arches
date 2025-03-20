@@ -15,7 +15,7 @@ from compas.geometry import Vector
 from compas.geometry import Line
 from compas.geometry import add_vectors
 from compas.geometry import scale_vector
-from compas.geometry import distance_point_point_sqrd
+from compas.geometry import distance_point_point
 from compas.geometry import intersection_segment_plane
 
 from compas.utilities import pairwise
@@ -209,9 +209,9 @@ class VaultPlotter(Plotter):
 
         # First node
         node_key = 0
-        point = Point(*network.node_coordinates(node_key))       
+        point = Point(*network.node_coordinates(node_key))
         # Check lower bound
-        if point.y <= (vault.height - vault.lintel_height + tol):
+        if fabs(point.y - (vault.height - vault.lintel_height + tol)) < tol:
             self.add(
                     point,
                     size=pointsize,
@@ -219,14 +219,34 @@ class VaultPlotter(Plotter):
                     zorder=2000
                 )
         # Check upper bound
-        elif point.y >= (vault.height - tol):
+        elif fabs(point.y - (vault.height - tol)) < tol:
             self.add(
                     point,
                     size=pointsize,
                     facecolor=color_constraint_upper,
                     zorder=2000
                 )
-
+            
+        # Last node
+        node_key = network.number_of_nodes() - 1
+        point = Point(*network.node_coordinates(node_key))
+        # Check lower bound
+        if fabs(point.x) < tol:
+            self.add(
+                    point,
+                    size=pointsize,
+                    facecolor=color_constraint_upper,
+                    zorder=2000
+                )
+        # Check upper bound
+        elif fabs(point.x - vault.wall_width) <= tol:
+            self.add(
+                    point,
+                    size=pointsize,
+                    facecolor=color_constraint_lower,
+                    zorder=2000
+                )
+            
         # Intermediate nodes
         for node in network.nodes():
 
@@ -245,7 +265,7 @@ class VaultPlotter(Plotter):
                 start, end = end, start
 
             # Check lower bound            
-            if point.y > 0.0 and distance_point_point_sqrd(point, start) <= tol:
+            if point.y > 0.0 and distance_point_point(point, start) <= tol:
                 self.add(
                     point,
                     size=pointsize,
@@ -254,7 +274,7 @@ class VaultPlotter(Plotter):
                 )
 
             # Check upper bound            
-            if distance_point_point_sqrd(point, end) <= tol:
+            if distance_point_point(point, end) <= tol:
                 self.add(
                     point,
                     size=pointsize,
@@ -288,6 +308,7 @@ def plot_thrust_minmax_vault(
         plot_thrusts: bool = True,
         save_plot: bool = True,
         show_plot: bool = True,
+        thrust_linewidth: float = 3.0,
         forcescale: float = 1.0,
         tol_bounds: float = 1e-3,
         ) -> None:
@@ -310,7 +331,7 @@ def plot_thrust_minmax_vault(
     for loss_fn_name, network in networks.items():
         linestyle = "solid" if loss_fn_name == "max" else "solid"
 
-        plotter.plot_thrust_network(network, linestyle=linestyle, linewidth=(2, 7))
+        plotter.plot_thrust_network(network, linestyle=linestyle, linewidth=thrust_linewidth)
 
         if plot_constraints:
             plotter.plot_constraints(vault, network, tol_bounds)
