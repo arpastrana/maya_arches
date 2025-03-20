@@ -12,7 +12,6 @@ from compas.geometry import Plane
 from compas.geometry import Reflection
 from compas.geometry import Point
 from compas.geometry import Vector
-from compas.geometry import Polyline
 from compas.geometry import Line
 from compas.geometry import add_vectors
 from compas.geometry import scale_vector
@@ -212,7 +211,7 @@ class VaultPlotter(Plotter):
         node_key = 0
         point = Point(*network.node_coordinates(node_key))       
         # Check lower bound
-        if point.y <= (vault.height - vault.lintel_height + tol)
+        if point.y <= (vault.height - vault.lintel_height + tol):
             self.add(
                     point,
                     size=pointsize,
