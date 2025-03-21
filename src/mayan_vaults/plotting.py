@@ -84,7 +84,7 @@ class VaultPlotter(Plotter):
                 draw_as_segment=True,
                 linestyle="solid",
                 color=Color.from_rgb255(240, 240, 240),  # Color.grey(),
-                lineweight=0.1,
+                lineweight=0.05,
                 zorder=100
             )
 
@@ -207,6 +207,10 @@ class VaultPlotter(Plotter):
         color_constraint_lower = Color.from_rgb255(250, 80, 210)
         color_constraint_upper = Color.orange()
 
+        # Special cases
+        points_first_last = []
+        block_height_avg = sum(block.height() for block in vault.blocks.values()) / len(vault.blocks)
+
         # First node
         node_key = 0
         point = Point(*network.node_coordinates(node_key))
@@ -218,6 +222,7 @@ class VaultPlotter(Plotter):
                     facecolor=color_constraint_lower,
                     zorder=2000
                 )
+            points_first_last.append(point)
         # Check upper bound
         elif fabs(point.y - (vault.height - tol)) < tol:
             self.add(
@@ -226,6 +231,7 @@ class VaultPlotter(Plotter):
                     facecolor=color_constraint_upper,
                     zorder=2000
                 )
+            points_first_last.append(point)
             
         # Last node
         node_key = network.number_of_nodes() - 1
@@ -238,6 +244,7 @@ class VaultPlotter(Plotter):
                     facecolor=color_constraint_upper,
                     zorder=2000
                 )
+            points_first_last.append(point)
         # Check upper bound
         elif fabs(point.x - vault.wall_width) <= tol:
             self.add(
@@ -246,7 +253,8 @@ class VaultPlotter(Plotter):
                     facecolor=color_constraint_lower,
                     zorder=2000
                 )
-            
+            points_first_last.append(point)
+
         # Intermediate nodes
         for node in network.nodes():
 
@@ -255,6 +263,16 @@ class VaultPlotter(Plotter):
                 continue
 
             point = Point(*network.node_coordinates(node))
+
+            # Check if the point is close to the special cases
+            is_close_to_special = False
+            for point_special in points_first_last:                
+                if distance_point_point(point, point_special) - tol <= block_height_avg:
+                    is_close_to_special = True
+                    break
+
+            if is_close_to_special:
+                continue
 
             # Check constraint plane line
             plane_line = block.plane_line()
@@ -330,8 +348,15 @@ def plot_thrust_minmax_vault(
 
     for loss_fn_name, network in networks.items():
         linestyle = "solid" if loss_fn_name == "max" else "solid"
+        color_blue = Color.from_rgb255(12, 119, 184)
+        color_blue_dark = color_blue.darkened(20)
+        color = color_blue_dark if loss_fn_name == "max" else color_blue
 
-        plotter.plot_thrust_network(network, linestyle=linestyle, linewidth=thrust_linewidth)
+        plotter.plot_thrust_network(
+            network,
+            linestyle=linestyle,
+            linewidth=thrust_linewidth,
+            color=color)
 
         if plot_constraints:
             plotter.plot_constraints(vault, network, tol_bounds)
