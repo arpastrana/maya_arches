@@ -5,6 +5,7 @@ from compas.geometry import Plane
 from compas.geometry import centroid_points
 from compas.geometry import cross_vectors
 from compas.geometry import intersection_polyline_plane
+from compas.geometry import distance_point_point
 from compas.geometry import allclose
 from compas.utilities import pairwise
 
@@ -99,7 +100,7 @@ class Block:
         """
         The height of the block.
         """
-        return self.line_top.midpoint.y - self.line_bottom.midpoint.y
+        return distance_point_point(self.line_top.midpoint, self.line_bottom.midpoint)
 
     def __repr__(self):
         return f"Block(area={self.area():.2f}, height={self.height():.2f})"
