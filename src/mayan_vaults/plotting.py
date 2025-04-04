@@ -24,7 +24,10 @@ from compas_plotters import Plotter
 from compas_plotters.artists import NetworkArtist
 
 from mayan_vaults import FIGURES
-from mayan_vaults.vaults import MayanVault
+
+from mayan_vaults.vaults import Vault
+from mayan_vaults.vaults import MayaVault
+from mayan_vaults.vaults import CircularVault
 
 
 # ------------------------------------------------------------------------------
@@ -200,7 +203,7 @@ class VaultPlotter(Plotter):
                         color=Color.grey()
                     )
 
-    def plot_constraints(self, vault, network, tol: float = 1e-3, pointsize: float = 6.0) -> None:
+    def plot_constraints(self, vault, network, tol_bounds: float = 1e-3, tol_constraints: float = 1e-3, pointsize: float = 6.0) -> None:
         """
         Plot the constraints.
         """
@@ -213,9 +216,11 @@ class VaultPlotter(Plotter):
 
         # First node
         node_key = 0
-        point = Point(*network.node_coordinates(node_key))
-        # Check lower bound
-        if fabs(point.y - (vault.height - vault.lintel_height + tol)) < tol:
+        point = Point(*network.node_coordinates(node_key))        
+        
+        # Check lower bound        
+        if fabs(point.y - (vault.height - vault.thickness + tol_bounds)) < tol_bounds:
+            print(f"Adding lower bound: {point=}")
             self.add(
                     point,
                     size=pointsize,
@@ -224,7 +229,7 @@ class VaultPlotter(Plotter):
                 )
             points_first_last.append(point)
         # Check upper bound
-        elif fabs(point.y - (vault.height - tol)) < tol:
+        elif fabs((vault.height - tol_bounds) - point.y) < tol_bounds:            
             self.add(
                     point,
                     size=pointsize,
@@ -237,7 +242,7 @@ class VaultPlotter(Plotter):
         node_key = network.number_of_nodes() - 1
         point = Point(*network.node_coordinates(node_key))
         # Check lower bound
-        if fabs(point.x) < tol:
+        if fabs(point.x) < tol_bounds:
             self.add(
                     point,
                     size=pointsize,
@@ -246,7 +251,7 @@ class VaultPlotter(Plotter):
                 )
             points_first_last.append(point)
         # Check upper bound
-        elif fabs(point.x - vault.wall_width) <= tol:
+        elif fabs(point.x - vault.support_width) <= tol_bounds:
             self.add(
                     point,
                     size=pointsize,
@@ -267,7 +272,7 @@ class VaultPlotter(Plotter):
             # Check if the point is close to the special cases
             is_close_to_special = False
             for point_special in points_first_last:                
-                if distance_point_point(point, point_special) - tol <= block_height_avg:
+                if distance_point_point(point, point_special) - tol_constraints <= block_height_avg:
                     is_close_to_special = True
                     break
 
@@ -283,7 +288,7 @@ class VaultPlotter(Plotter):
                 start, end = end, start
 
             # Check lower bound            
-            if point.y > 0.0 and distance_point_point(point, start) <= tol:
+            if point.y > 0.0 and distance_point_point(point, start) <= tol_constraints:
                 self.add(
                     point,
                     size=pointsize,
@@ -292,7 +297,7 @@ class VaultPlotter(Plotter):
                 )
 
             # Check upper bound            
-            if distance_point_point(point, end) <= tol:
+            if distance_point_point(point, end) <= tol_constraints:
                 self.add(
                     point,
                     size=pointsize,
@@ -316,7 +321,7 @@ class ThrustNetworkArtist(NetworkArtist):
 # ------------------------------------------------------------------------------
 
 def plot_thrust_minmax_vault(
-        vault: MayanVault, 
+        vault: Vault, 
         networks: dict,
         plot_other_half: bool = True,
         plot_blocks: bool = True,
@@ -329,6 +334,7 @@ def plot_thrust_minmax_vault(
         thrust_linewidth: float = 3.0,
         forcescale: float = 1.0,
         tol_bounds: float = 1e-3,
+        tol_constraints: float = 1e-3,
         ) -> None:
     """
     Plot the thrust minimization and maximization results.
@@ -359,7 +365,7 @@ def plot_thrust_minmax_vault(
             color=color)
 
         if plot_constraints:
-            plotter.plot_constraints(vault, network, tol_bounds)
+            plotter.plot_constraints(vault, network, tol_bounds, tol_constraints)
 
         if plot_loads:
             plotter.plot_thrust_network_loads(network, forcescale)
@@ -368,7 +374,10 @@ def plot_thrust_minmax_vault(
             plotter.plot_thrust_network_thrusts(network, forcescale)
 
     if save_plot:
-        fig_name = f"minmax_h{int(vault.height)}_w{int(vault.width)}_wh{int(vault.wall_height)}_ww{int(vault.wall_width)}_lh{int(vault.lintel_height)}.pdf"
+        if isinstance(vault, MayaVault):
+            fig_name = f"minmax_h{int(vault.height)}_w{int(vault.width)}_wh{int(vault.wall_height)}_ww{int(vault.wall_width)}_lh{int(vault.lintel_height)}.pdf"
+        elif isinstance(vault, CircularVault):
+            fig_name = f"minmax_r{int(vault.radius)}_t{int(vault.thickness)}.pdf"
         fig_path = os.path.join(FIGURES, fig_name)
         plotter.save(fig_path, transparent=True, bbox_inches="tight")
         print(f"\nSaved figure to {fig_path}")
