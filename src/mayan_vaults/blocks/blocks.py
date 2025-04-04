@@ -4,6 +4,8 @@ from compas.geometry import Line
 from compas.geometry import Plane
 from compas.geometry import centroid_points
 from compas.geometry import cross_vectors
+from compas.geometry import add_vectors
+from compas.geometry import scale_vector
 from compas.geometry import intersection_polyline_plane
 from compas.geometry import distance_point_point
 from compas.geometry import allclose
@@ -12,7 +14,7 @@ from compas.utilities import pairwise
 from mayan_vaults.blocks.slicing import slice_vault
 from mayan_vaults.blocks.slicing import create_slice_planes_by_block_horizontal
 from mayan_vaults.blocks.slicing import create_slice_planes_by_block_vertical
-
+from mayan_vaults.blocks.slicing import create_slice_planes_vertical
 
 class Block:
     """
@@ -58,7 +60,9 @@ class Block:
         """
         The plane of the block.
         """
-        normal = cross_vectors(self.line_bottom.vector, [0.0, 0.0, 1.0])
+        normal_bottom = cross_vectors(self.line_bottom.vector, [0.0, 0.0, 1.0])
+        normal_top = cross_vectors(self.line_top.vector, [0.0, 0.0, 1.0])
+        normal = scale_vector(add_vectors(normal_bottom, normal_top), 0.5)
 
         return Plane(self.centroid(), normal)
 
@@ -118,6 +122,7 @@ def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -
     The slicing method one of:
     - meta block horizontal (0)
     - meta block vertical (1)
+    - linear range vertical (2)
     """
     # Create slice planes
     num_planes = num_blocks + 1
@@ -126,6 +131,8 @@ def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -
         planes = create_slice_planes_by_block_horizontal(vault, num_planes)    
     elif slicing_method == 1:
         planes = create_slice_planes_by_block_vertical(vault, num_planes)
+    elif slicing_method == 2:
+        planes = create_slice_planes_vertical(vault, num_planes)
     else:
         raise ValueError(f"Invalid slicing method id: {slicing_method}")
 

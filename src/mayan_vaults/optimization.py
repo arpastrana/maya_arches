@@ -34,7 +34,7 @@ from mayan_vaults.datastructures import ThrustNetwork
 from mayan_vaults.datastructures import ThrustNetwork2D
 from mayan_vaults.datastructures import create_topology_from_vault
 
-from mayan_vaults.vaults import MayanVault
+from mayan_vaults.vaults import Vault
 
 
 # ------------------------------------------------------------------------------
@@ -141,9 +141,6 @@ def constraint_position_fn(
 
     # calculate equilibrium state
     eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
-
-    # extract y coordinates of all nodes but the first
-    # x = eqstate.xyz[1:, 1]
 
     # extract y coordinates of all nodes but the first and last
     x = eqstate.xyz[1:-1, 1]
@@ -426,7 +423,7 @@ def solve_thrust_opt_max(*args, **kwargs) -> FormDiagram:
 # ------------------------------------------------------------------------------
 
 def solve_thrust_minmax_vault(
-        vault: MayanVault,
+        vault: Vault,
         tol_bounds: float,
         tol: float,
         maxiter: int) -> tuple[dict, dict]:
