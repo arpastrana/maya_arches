@@ -38,7 +38,7 @@ def create_planes_linrange(origin_start: Point, direction: Vector, distance: flo
 
 def create_slice_planes_by_block_horizontal(vault, num_planes: int = 4) -> List[Line]:
     """
-    Slices a vault horizontally, creating planar line slices.
+    Slices a vault horizontally, creating planar line slices per block.
 
     Notes
     ------
@@ -105,9 +105,9 @@ def create_slice_planes_by_block_horizontal(vault, num_planes: int = 4) -> List[
 # Vertical slicing
 # ------------------------------------------------------------------------------
 
-def create_slice_planes_by_block_vertical(vault, num_planes: int = 2) -> List[Line]:
+def create_slice_planes_by_block_vertical(vault, num_planes: int = 3) -> List[Line]:
     """
-    Slices a vault vertically, creating planar line slices.
+    Slices a vault vertically, creating planar line slices per block.
 
     Notes
     ------
@@ -169,6 +169,26 @@ def create_slice_planes_by_block_vertical(vault, num_planes: int = 2) -> List[Li
     return planes
 
 
+def create_slice_planes_vertical(vault, num_planes: int = 2) -> List[Line]:
+    """
+    Slices a vault vertically, creating uniformly spaced planar line slices per block.
+    """
+    num_planes_min = 2
+    assert num_planes >= num_planes_min, f"The number of planes must be greater than or equal to {num_planes_min}"
+
+    # Create planes
+    planes = create_planes_linrange(
+        Point(0.0, 0.0, 0.0),
+        Vector(1.0, 0.0, 0.0),
+        vault.width * 0.4999,  # NOTE: This is a hack to avoid the line being too close to the edge of the vault
+        num_planes
+    )
+
+    assert len(planes) == num_planes, f"Number of planes does not match: {len(planes)} != {num_planes}"
+
+    return planes
+
+
 # ------------------------------------------------------------------------------
 # Caller functions
 # ------------------------------------------------------------------------------
@@ -185,7 +205,7 @@ def slice_vault(vault, planes: List[Plane]) -> List[Line]:
         _points = intersection_polyline_plane(
             polyline,
             plane,
-            expected_number_of_intersections=3
+            expected_number_of_intersections=3,
         )
 
         points = []
@@ -198,10 +218,14 @@ def slice_vault(vault, planes: List[Plane]) -> List[Line]:
 
         # TODO: This is a hack, find a better solution!
         if len(points) > 2:
-            print(f"Found {len(points)} points with plane {i}. Creating {len(points) - 2} extra lines.\n")
+            print(f"Found {len(points)} points with plane {i}. Creating {len(points) - 2} extra lines.")
             point_base = points.pop()
             for point in points:
                 lines.append(Line(point, point_base))
+        elif len(points) == 1:
+            print(f"Found 1 point with plane {i}. Creating 1 line by duplicating the point.")
+            point = points[0]
+            lines.append(Line(point, point))
         else:
             lines.append(Line(*points))
 
