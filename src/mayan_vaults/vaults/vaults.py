@@ -43,6 +43,14 @@ class Vault(ABC):
     
     @property
     @abstractmethod
+    def support_width(self) -> float:
+        """
+        The width of the support.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
     def span(self) -> float:
         """
         The span of the vault.

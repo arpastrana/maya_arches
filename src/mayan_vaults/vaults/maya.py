@@ -57,6 +57,13 @@ class MayaVault(Vault):
         return self.lintel_height
 
     @property
+    def support_width(self) -> float:
+        """
+        The width of the support.
+        """
+        return self.wall_width
+
+    @property
     def span(self) -> float:
         """
         The span of the vault.

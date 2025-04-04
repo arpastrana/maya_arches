@@ -49,6 +49,13 @@ class CircularVault(Vault):
         return self._thickness
 
     @property
+    def support_width(self) -> float:
+        """
+        The width of the support.
+        """
+        return self.thickness
+
+    @property
     def span(self) -> float:
         """
         The span of the vault.
