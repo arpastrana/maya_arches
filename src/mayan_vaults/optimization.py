@@ -31,7 +31,6 @@ from jax_cem.equilibrium import EquilibriumStructure
 from jax_cem.equilibrium import form_from_eqstate
 
 from mayan_vaults.datastructures import ThrustNetwork
-from mayan_vaults.datastructures import ThrustNetwork2D
 from mayan_vaults.datastructures import create_topology_from_vault
 
 from mayan_vaults.vaults import Vault
@@ -119,7 +118,7 @@ def calculate_params_bounds(vault, tol: float) -> list[tuple[float, float]]:
     Calculate the bounds for the parameters.
     """
     load_bounds = [(-1000.0, -tol)]  # Load on x always nonpositive
-    y_bounds = [(vault.height - vault.lintel_height + tol, vault.height - tol)]
+    y_bounds = [(vault.height - vault.thickness + tol, vault.height - tol)]
     bounds = load_bounds + y_bounds
 
     return bounds
@@ -267,7 +266,7 @@ def calculate_constraint_thrust(
 
     # Calculate bounds
     lb = [0.0]
-    ub = [vault.wall_width]
+    ub = [vault.support_width]
 
     lb = jnp.array(lb)
     ub = jnp.array(ub)
@@ -327,7 +326,7 @@ def calculate_constraint_position_support(
 
     # Calculate bounds
     lb = [0.0]
-    ub = [vault.wall_width]
+    ub = [vault.support_width]
 
     lb = jnp.array(lb)
     ub = jnp.array(ub)
@@ -496,7 +495,7 @@ def create_thrust_network_from_opt_result(
         result: OptimizeResult,
         model: EquilibriumModel,
         structure: EquilibriumStructure,
-        cls: type[ThrustNetwork] = ThrustNetwork2D
+        cls: type[ThrustNetwork] = ThrustNetwork
         ) -> ThrustNetwork:
     """
     Build a thrust network from the optimization result.
@@ -543,12 +542,12 @@ def test_thrust_opt_result(network: ThrustNetwork, vault, result: OptimizeResult
 
 def constraints_evaluate_solution(
         constraints: List[NonlinearConstraint],
-        result: OptimizeResult) -> None:
+        result: OptimizeResult,
+        tol: float = 1e-6) -> None:
     """
     Evaluates a list of nonlinear optimization constraints at the optimization result.
     """
     print("\nEvaluating constraints at solution")
-    tol = 1e-6
 
     for i, constraint in enumerate(constraints):
         cval = constraint.fun(result.x)

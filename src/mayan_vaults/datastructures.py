@@ -54,7 +54,7 @@ def add_nodes(topology: TopologyDiagram, vault) -> list[int]:
         factor = 1.0 - i / (num_nodes - 1)
         point = [
             factor * vault.width * 0.5,
-            vault.height - vault.lintel_height * 0.5,
+            vault.height - vault.thickness * 0.5,
             0.0
             ]
         key = topology.add_node(Node(i, point))
@@ -86,8 +86,6 @@ def add_loads(topology: TopologyDiagram, vault, node_keys: list[int], px0: float
     """
     Add loads to the topology diagram.
     """
-    # node_keys_lintel = node_keys[:1]
-
     # Apply vertical loads to all nodes
     for key in topology.nodes():
 
@@ -131,10 +129,6 @@ def add_trail_edges(topology: TopologyDiagram, node_keys: list[int], vault) -> N
 
 
 class ThrustNetwork(FormDiagram):
-    pass
-
-
-class ThrustNetwork2D(ThrustNetwork):
     """
     A thrust network is a CEM form diagram with a few extra bells and whistles.
     """
