@@ -104,7 +104,16 @@ class Block:
         """
         The height of the block.
         """
-        return distance_point_point(self.line_top.midpoint, self.line_bottom.midpoint)
+        def calculate_midpoint(line: Line) -> Point:
+            """
+            Calculate the midpoint of a line.
+            """
+            return scale_vector(add_vectors(line.start, line.vector), 0.5)
+
+        midpoint_top = calculate_midpoint(self.line_top)
+        midpoint_bottom = calculate_midpoint(self.line_bottom)
+
+        return distance_point_point(midpoint_top, midpoint_bottom)
 
     def __repr__(self):
         return f"Block(area={self.area():.2f}, height={self.height():.2f})"
