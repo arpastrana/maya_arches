@@ -16,7 +16,7 @@ class Vault(ABC):
     """
     A base class for vaults.
     """
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.blocks = {}
 
     @property

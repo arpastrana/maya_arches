@@ -12,7 +12,7 @@ from mayan_vaults.vaults.vaults import Vault
 
 class CircularVault(Vault):
     """
-    A circular vault.
+    A half-circular vault.
     """
     def __init__(self, radius: float, thickness: float, **kwargs):
         super().__init__()
