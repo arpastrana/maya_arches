@@ -1,24 +1,36 @@
 vault:
+  type: maya  # maya, circular, elliptical, elliptical_tapered
   height: 10.0
   width: 8.0
   wall_height: 4.5
   wall_width: 2.5
   lintel_height: 1.0
-  num_blocks: 7
-  slicing_method: 1  # 0: block horizontal, 1 block vertical
+  num_blocks: 100
+  slicing_method: 1  # 0: block horizontal, 1: block vertical, 2: linear range vertical
   block_density: 1.0
+  # circular
+  radius: 4.0  # NOTE: to be possibly merged with width or height
+  # circular and elliptical 
+  thickness: 2.5
+  # elliptical tapered 
+  thickness_top: 1.0  # elliptical tapered vault top thickness
+  thickness_bottom: 2.5  # elliptical tapered vault bottom thickness
 
 optimization:
   tol_bounds: 1.0e-3  # origin node height tolerance on bounds for numerical stability (no zero length segments)
-  tol: 1.0e-6  # tolerance for optimization
-  maxiter: 100  # maximum number of iterations
+  tol: 1.0e-6  # tolerance for optimization convergence
+  maxiter: 100  # maximum number of optimization steps
 
 plotting:
-  forcescale: 0.25
-  tol_bounds: 1.0e-3
+  forcescale: 0.5
+  tol_bounds: 2.0e-3
+  tol_constraints: 1.0e-6
+  thrust_linewidth: [2, 5]
+  plot_blocks: False
+  plot_blocks_lines: True
   plot_constraints: True
   plot_other_half: True
-  plot_loads: True
-  plot_thrusts: True
-  save_plot: False
+  plot_loads: False
+  plot_thrusts: False
+  save_plot: True
   show_plot: True
