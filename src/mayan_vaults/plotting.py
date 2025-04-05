@@ -28,7 +28,7 @@ from mayan_vaults import FIGURES
 from mayan_vaults.vaults import Vault
 from mayan_vaults.vaults import MayaVault
 from mayan_vaults.vaults import CircularVault
-
+from mayan_vaults.vaults import EllipticalVault
 
 # ------------------------------------------------------------------------------
 # Plotter
@@ -220,7 +220,6 @@ class VaultPlotter(Plotter):
         
         # Check lower bound        
         if fabs(point.y - (vault.height - vault.thickness + tol_bounds)) < tol_bounds:
-            print(f"Adding lower bound: {point=}")
             self.add(
                     point,
                     size=pointsize,
@@ -375,9 +374,11 @@ def plot_thrust_minmax_vault(
 
     if save_plot:
         if isinstance(vault, MayaVault):
-            fig_name = f"minmax_h{int(vault.height)}_w{int(vault.width)}_wh{int(vault.wall_height)}_ww{int(vault.wall_width)}_lh{int(vault.lintel_height)}.pdf"
+            fig_name = f"minmax_maya_h{int(vault.height)}_w{int(vault.width)}_wh{int(vault.wall_height)}_ww{int(vault.wall_width)}_lh{int(vault.lintel_height)}.pdf"
         elif isinstance(vault, CircularVault):
-            fig_name = f"minmax_r{int(vault.radius)}_t{int(vault.thickness)}.pdf"
+            fig_name = f"minmax_circle_r{int(vault.radius)}_t{int(vault.thickness)}_n{int(vault.num_blocks)}.pdf"
+        elif isinstance(vault, EllipticalVault):
+            fig_name = f"minmax_ellipse_h{int(vault.height)}_w{int(vault.width)}_t{int(vault.thickness)}_n{int(vault.num_blocks)}.pdf"
         fig_path = os.path.join(FIGURES, fig_name)
         plotter.save(fig_path, transparent=True, bbox_inches="tight")
         print(f"\nSaved figure to {fig_path}")
