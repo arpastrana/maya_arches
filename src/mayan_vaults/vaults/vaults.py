@@ -5,6 +5,8 @@ from compas.geometry import Polyline
 from compas.geometry import Polygon
 from compas.geometry import Point
 
+from mayan_vaults.blocks import create_blocks
+
 
 # ------------------------------------------------------------------------------
 # Abstract base class
@@ -57,14 +59,6 @@ class Vault(ABC):
         """
         raise NotImplementedError
 
-    @property
-    @abstractmethod
-    def span_half(self) -> float:
-        """
-        Half of the span of the vault.
-        """
-        raise NotImplementedError
-
     @abstractmethod
     def points(self) -> list[Point]:
         """
@@ -72,12 +66,25 @@ class Vault(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
+    @property    
+    def span_half(self) -> float:
+        """
+        Half of the span of the vault.
+        """
+        return self.span / 2.0
+    
+    @property
+    def num_blocks(self) -> int:
+        """
+        The number of blocks in the vault.
+        """
+        return len(self.blocks)
+
     def blockify(self, num_blocks: int, density: float, slicing_method: int) -> None:
         """
         Create blocks from the vault.
-        """
-        raise NotImplementedError
+        """        
+        self.blocks = create_blocks(self, num_blocks, density, slicing_method)
 
     def polyline(self):
         """
@@ -110,7 +117,7 @@ class Vault(ABC):
             'height': self.height,
             'width': self.width,            
             'span': self.span,            
-            'num_blocks': len(self.blocks)
+            'num_blocks': self.num_blocks
         }
 
         if isinstance(params_other, dict):

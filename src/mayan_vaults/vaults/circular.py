@@ -1,7 +1,8 @@
 from compas.geometry import Point
-from math import pi, cos, sin
+from math import pi
+from math import cos
+from math import sin
 
-from mayan_vaults.blocks import create_blocks
 from mayan_vaults.vaults.vaults import Vault
 
 
@@ -62,19 +63,10 @@ class CircularVault(Vault):
         """
         return 2 * (self.radius - self.thickness)
     
-    @property
-    def span_half(self) -> float:
-        """
-        The span of the vault.
-        """
-        return self.span / 2.0
-
-    def points(self, num_points: int = 101) -> list[Point]:
+    def points(self, num_points: int = 100) -> list[Point]:
         """
         The points of the vault.
-        """
-        assert num_points % 2 == 1, "Number of points must be odd"
-
+        """        
         radius_extrados = self.radius
         points_extrados = points_circle_arc_half(radius_extrados, num_points)    
 
@@ -82,20 +74,11 @@ class CircularVault(Vault):
         points_intrados = points_circle_arc_half(radius_intrados, num_points, self.thickness)
 
         return points_extrados + points_intrados[::-1]
-    
-    def blockify(self, num_blocks: int, density: float, slicing_method: int) -> None:
-        """
-        Create blocks from the vault.
-        """        
-        self.blocks = create_blocks(self, num_blocks, density, slicing_method)
 
     def __str__(self) -> str:
         """Return a string representation of the CircularVault object."""
-        params = {            
-            'radius': self.radius,
-            'thickness': self.thickness,
-            'num_blocks': len(self.blocks)
-        }
+        params = {'radius': self.radius, 'thickness': self.thickness}
+
         return super().__str__(params)
 
 

@@ -1,8 +1,6 @@
 from compas.geometry import add_vectors
 from compas.geometry import Point
 
-from mayan_vaults.blocks import create_blocks
-
 from mayan_vaults.vaults.vaults import Vault
 
 
@@ -69,13 +67,6 @@ class MayaVault(Vault):
         The span of the vault.
         """
         return self.width - 2 * self.wall_width
-
-    @property
-    def span_half(self) -> float:
-        """
-        Half of the span of the vault.
-        """
-        return self.span / 2.0
     
     @property
     def corbel_height(self) -> float:
@@ -97,12 +88,6 @@ class MayaVault(Vault):
         p5 = add_vectors(p0, [0.0, self.height, 0.0])
 
         return [p0, p1, p2, p3, p4, p5]
-
-    def blockify(self, num_blocks: int, density: float, slicing_method: int) -> None:
-        """
-        Create blocks from the vault. The lintel roof won't be sliced.
-        """
-        self.blocks = create_blocks(self, num_blocks, density, slicing_method)
 
     def _check_width(self) -> None:
         """
