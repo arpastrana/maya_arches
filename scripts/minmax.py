@@ -1,5 +1,5 @@
 """
-Solve thrust minimization and maximization for a Mayan vault in 2D.
+Solve thrust minimization and maximization for an arch.
 """
 import yaml
 
@@ -33,7 +33,7 @@ def run_tna_experiment():
     TNA sandbox.
     """
     # Load yaml file with hyperparameters
-    with open("minmax_tna.yml") as file:
+    with open("minmax.yml") as file:
         config = yaml.load(file, Loader=yaml.FullLoader)
 
     vault_type = find_vault_type(config["vault"])
