@@ -31,10 +31,9 @@ from jax_cem.equilibrium import EquilibriumStructure
 from jax_cem.equilibrium import form_from_eqstate
 
 from mayan_vaults.datastructures import ThrustNetwork
-from mayan_vaults.datastructures import ThrustNetwork2D
 from mayan_vaults.datastructures import create_topology_from_vault
 
-from mayan_vaults.vaults import MayanVault
+from mayan_vaults.vaults import Vault
 
 
 # ------------------------------------------------------------------------------
@@ -119,7 +118,7 @@ def calculate_params_bounds(vault, tol: float) -> list[tuple[float, float]]:
     Calculate the bounds for the parameters.
     """
     load_bounds = [(-1000.0, -tol)]  # Load on x always nonpositive
-    y_bounds = [(vault.height - vault.lintel_height + tol, vault.height - tol)]
+    y_bounds = [(vault.height - vault.thickness + tol, vault.height - tol)]
     bounds = load_bounds + y_bounds
 
     return bounds
@@ -142,9 +141,6 @@ def constraint_position_fn(
     # calculate equilibrium state
     eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
 
-    # extract y coordinates of all nodes but the first
-    # x = eqstate.xyz[1:, 1]
-
     # extract y coordinates of all nodes but the first and last
     x = eqstate.xyz[1:-1, 1]
 
@@ -155,7 +151,8 @@ def calculate_constraint_position(
         vault,
         model: EquilibriumModel,
         structure: EquilibriumStructure,
-        params0: jax.Array) -> NonlinearConstraint:
+        params0: jax.Array,
+        tol: float = 1e-6) -> NonlinearConstraint:
     """
     Generate the nonlinear constraint object for the optimization.
     """
@@ -193,9 +190,9 @@ def calculate_constraint_position(
         _lb = start.y
         _ub = end.y
 
-        if start.y <= 0.0:
+        if start.y <= tol:
             if not skip_block_support:                
-                _lb = -vault.height * 10.0
+                _lb = -vault.height * 50.0
             skip_block_support = False
 
         lb.append(_lb)
@@ -270,7 +267,7 @@ def calculate_constraint_thrust(
 
     # Calculate bounds
     lb = [0.0]
-    ub = [vault.wall_width]
+    ub = [vault.support_width]
 
     lb = jnp.array(lb)
     ub = jnp.array(ub)
@@ -330,7 +327,7 @@ def calculate_constraint_position_support(
 
     # Calculate bounds
     lb = [0.0]
-    ub = [vault.wall_width]
+    ub = [vault.support_width]
 
     lb = jnp.array(lb)
     ub = jnp.array(ub)
@@ -383,7 +380,6 @@ def solve_thrust_opt(
 
     constraints = [
         constraint_position,
-        # constraint_thrust,
         constraint_position_support
         ]
 
@@ -426,7 +422,7 @@ def solve_thrust_opt_max(*args, **kwargs) -> FormDiagram:
 # ------------------------------------------------------------------------------
 
 def solve_thrust_minmax_vault(
-        vault: MayanVault,
+        vault: Vault,
         tol_bounds: float,
         tol: float,
         maxiter: int) -> tuple[dict, dict]:
@@ -499,7 +495,7 @@ def create_thrust_network_from_opt_result(
         result: OptimizeResult,
         model: EquilibriumModel,
         structure: EquilibriumStructure,
-        cls: type[ThrustNetwork] = ThrustNetwork2D
+        cls: type[ThrustNetwork] = ThrustNetwork
         ) -> ThrustNetwork:
     """
     Build a thrust network from the optimization result.
@@ -546,12 +542,12 @@ def test_thrust_opt_result(network: ThrustNetwork, vault, result: OptimizeResult
 
 def constraints_evaluate_solution(
         constraints: List[NonlinearConstraint],
-        result: OptimizeResult) -> None:
+        result: OptimizeResult,
+        tol: float = 1e-6) -> None:
     """
     Evaluates a list of nonlinear optimization constraints at the optimization result.
     """
     print("\nEvaluating constraints at solution")
-    tol = 1e-6
 
     for i, constraint in enumerate(constraints):
         cval = constraint.fun(result.x)

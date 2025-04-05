@@ -9,5 +9,7 @@ src/*.egg-info/
 build
 htmlcov
 
+temp/
 figures/
 *.ipynb
+*.gh
