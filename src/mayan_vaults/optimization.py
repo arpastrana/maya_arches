@@ -151,7 +151,8 @@ def calculate_constraint_position(
         vault,
         model: EquilibriumModel,
         structure: EquilibriumStructure,
-        params0: jax.Array) -> NonlinearConstraint:
+        params0: jax.Array,
+        tol: float = 1e-6) -> NonlinearConstraint:
     """
     Generate the nonlinear constraint object for the optimization.
     """
@@ -189,9 +190,9 @@ def calculate_constraint_position(
         _lb = start.y
         _ub = end.y
 
-        if start.y <= 0.0:
+        if start.y <= tol:
             if not skip_block_support:                
-                _lb = -vault.height * 10.0
+                _lb = -vault.height * 50.0
             skip_block_support = False
 
         lb.append(_lb)
@@ -379,7 +380,6 @@ def solve_thrust_opt(
 
     constraints = [
         constraint_position,
-        # constraint_thrust,
         constraint_position_support
         ]
 
