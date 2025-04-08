@@ -2,7 +2,7 @@ from compas.geometry import Polygon
 from compas.geometry import Point
 from compas.geometry import Line
 from compas.geometry import Plane
-from compas.geometry import centroid_points
+from compas.geometry import centroid_polygon
 from compas.geometry import cross_vectors
 from compas.geometry import add_vectors
 from compas.geometry import scale_vector
@@ -15,6 +15,11 @@ from mayan_vaults.blocks.slicing import slice_vault
 from mayan_vaults.blocks.slicing import create_slice_planes_by_block_horizontal
 from mayan_vaults.blocks.slicing import create_slice_planes_by_block_vertical
 from mayan_vaults.blocks.slicing import create_slice_planes_vertical
+
+
+# ------------------------------------------------------------------------------
+# Block
+# ------------------------------------------------------------------------------
 
 class Block:
     """
@@ -54,11 +59,16 @@ class Block:
         """
         The centroid of the block.
         """
-        return centroid_points(self.points())
+        return centroid_polygon(self.points())
 
     def plane(self) -> Plane:
         """
         The plane of the block.
+
+        Notes
+        -----
+        The normal vector is computed as the average of the normals of 
+        the bottom and top lines.
         """
         normal_bottom = cross_vectors(self.line_bottom.vector, [0.0, 0.0, 1.0])
         normal_top = cross_vectors(self.line_top.vector, [0.0, 0.0, 1.0])
@@ -118,6 +128,10 @@ class Block:
     def __repr__(self):
         return f"Block(area={self.area():.2f}, height={self.height():.2f})"
 
+
+# ------------------------------------------------------------------------------
+# Block factory
+# ------------------------------------------------------------------------------
 
 def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -> list[Block]:
     """
