@@ -423,14 +423,17 @@ def solve_thrust_opt_max(*args, **kwargs) -> FormDiagram:
 
 def solve_thrust_minmax_vault(
         vault: Vault,
-        tol_bounds: float,
-        tol: float,
-        maxiter: int) -> tuple[dict, dict]:
+        solve_min: bool = True,
+        solve_max: bool = True,
+        px0: float = -1.0,
+        tol_bounds: float = 1e-3,
+        tol: float = 1e-6,
+        maxiter: int = 100) -> tuple[dict, dict]:
     """
     Solve the thrust minimization and maximization problems for a given vault geometry.
     """
     # Instantiate a topology diagram
-    topology = create_topology_from_vault(vault, px0=-5.0)
+    topology = create_topology_from_vault(vault, px0=px0)
 
     # JAX CEM - form finding
     structure = EquilibriumStructure.from_topology_diagram(topology)
@@ -440,12 +443,14 @@ def solve_thrust_minmax_vault(
     # Horizontal load and the 2D coordinates of the origin node
     params0 = calculate_start_params(topology)
 
+    solve_fns = {}
+    if solve_min:
+        solve_fns["min"] = solve_thrust_opt_min
+    if solve_max:
+        solve_fns["max"] = solve_thrust_opt_max
+
     networks = {}
     results = {}
-    solve_fns = {
-        "min": solve_thrust_opt_min,
-        "max": solve_thrust_opt_max
-        }
 
     for solve_fn_name, solve_fn in solve_fns.items():
 
