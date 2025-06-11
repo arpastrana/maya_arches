@@ -167,7 +167,6 @@ def calculate_constraint_position(
 
     # NOTE: This is possible because the nodes in the structure are sorted by JAX CEM
     # Otherwise, we would need to use an index_node mapping to get the block
-    skip_block_support = True
     for key in structure.nodes:
 
         # The first node is box constrained
@@ -190,10 +189,13 @@ def calculate_constraint_position(
         _lb = start.y
         _ub = end.y
 
+        # NOTE: We used to skip the first block on the wall after the corbel to
+        # capture a crack at the intersection of the wall's intrados and the ground.
+        # But this led to numerical artifacts when calculating the stability domain
+        # for mu=0.0. Essentially, we were constraining the thrust to be lower
+        # than it should be at this mu. So now we don't skip the first block.
         if start.y <= tol:
-            if not skip_block_support:                
-                _lb = -vault.height * 50.0
-            skip_block_support = False
+            _lb = -vault.height * 50.0
 
         lb.append(_lb)
         ub.append(_ub)
@@ -482,7 +484,7 @@ def solve_thrust_minmax_vault(
 
         print(f"SW (Vertical load sum): {sw:.2f}")
         print(f"Thrust at support: {thrust:.2f}")
-        print(f"Ratio thrust / SW [%]: {100.0 * thrust / sw:.1f}")
+        print(f"Ratio thrust / SW [%]: {100.0 * thrust / sw:.2f}")
 
         results[solve_fn_name] = {
             "thrust": thrust,
