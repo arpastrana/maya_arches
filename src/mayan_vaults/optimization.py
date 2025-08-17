@@ -142,25 +142,18 @@ def constraint_position_fn(
     eqstate = model(structure, tmax=1)  # TODO: tmax = 100?
 
     # extract y coordinates of all nodes but the first and last
-    x = eqstate.xyz[1:-1, 1]
+    y = eqstate.xyz[1:-1, 1]
 
-    return x
+    return y
 
 
-def calculate_constraint_position(
+def calculate_constraint_position_bounds(
         vault,
-        model: EquilibriumModel,
         structure: EquilibriumStructure,
-        params0: jax.Array,
         tol: float = 1e-6) -> NonlinearConstraint:
     """
-    Generate the nonlinear constraint object for the optimization.
+    Generate the y bounds for the constraint function.
     """
-    partial_constraint_fn = jit(partial(constraint_position_fn, model=model, structure=structure))
-
-    # Warm start
-    _ = partial_constraint_fn(params0)
-
     # Calculate bounds
     lb = []
     ub = []
@@ -202,6 +195,26 @@ def calculate_constraint_position(
 
     lb = jnp.array(lb)
     ub = jnp.array(ub)
+
+    return lb, ub
+
+
+def calculate_constraint_position(
+        vault,
+        model: EquilibriumModel,
+        structure: EquilibriumStructure,
+        params0: jax.Array,
+        tol: float = 1e-6) -> NonlinearConstraint:
+    """
+    Generate the nonlinear constraint object for the optimization.
+    """
+    partial_constraint_fn = jit(partial(constraint_position_fn, model=model, structure=structure))
+
+    # Warm start
+    _ = partial_constraint_fn(params0)
+
+    # Calculate bounds
+    lb, ub = calculate_constraint_position_bounds(vault, structure, tol)
 
     jac_fn = jit(jacfwd(partial_constraint_fn))
 
