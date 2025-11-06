@@ -1,4 +1,6 @@
 import os
+from math import fabs
+
 import yaml
 from functools import partial
 
@@ -116,7 +118,7 @@ loss_fns = {
 }
 
 # optimization
-optimize = False
+optimize = True
 tol = 1e-6
 tol_bounds = 1e-3
 maxiter = 100
@@ -124,21 +126,26 @@ maxiter = 100
 # design space grid
 sample_grid = True
 
-px_grid_start = -1.0
-px_grid_end = -4.0
-y_grid_start = 8.0
-y_grid_end = 11.0
+# grid parameters, if auto_grid is False then these parameters are used
+auto_grid = False
+px_grid_start = -0.2
+px_grid_end = -1.05
+y_grid_start = 4.0
+y_grid_end = 5.5
+xticks = [0.25, 0.5, 0.75, 1.0]
+yticks = [4.0, 4.5, 5.0, 5.5]
+vmin = 0.0
+vmax = 0.2
 
 num_x = 50
 num_y = 50
-vmin = 0.0
-vmax = 0.2
 norm = "linear"
 
+plot_contours = True
 plot_y_hlines = True
 
 # plotting
-save_plot = False
+save_plot = True
 plot_extension = "png"
 
 # ==========================================================================
@@ -149,8 +156,9 @@ plot_extension = "png"
 with open("minmax.yml") as file:
     config = yaml.load(file, Loader=yaml.FullLoader)
 
-arch_type = find_arch_type(config["arch"])
-arch = create_arch(arch_type, **config["arch"])
+arch_config = config["arch"]
+arch_type = find_arch_type(arch_config)
+arch = create_arch(arch_type, **arch_config)
 weight = arch.weight()
 print(arch)
 print(f"Weight: {weight:.3f}")
@@ -170,39 +178,64 @@ params0 = calculate_start_params(topology)
 # Optimization
 # ==========================================================================
 
-if optimize:
-    params_opt = []
-    result = solve_thrust_opt_min(
-        arch,
-        params0,
-        model,
-        structure,
-        maxiter=maxiter,
-        tol=tol,
-        tol_bounds=tol_bounds)
+params_opt = {"min": None, "max": None}
+result = solve_thrust_opt_min(
+    arch,
+    params0,
+    model,
+    structure,
+    maxiter=maxiter,
+    tol=tol,
+    tol_bounds=tol_bounds)
 
-    params_opt.append(result.x)
+params_opt["min"] = result.x
 
-    result = solve_thrust_opt_max(
-        arch,
-        params0,
-        model,
-        structure,
-        maxiter=maxiter,
-        tol=tol,
-        tol_bounds=tol_bounds)
+result = solve_thrust_opt_max(
+    arch,
+    params0,
+    model,
+    structure,
+    maxiter=maxiter,
+    tol=tol,
+    tol_bounds=tol_bounds)
 
-    params_opt.append(result.x)
+params_opt["max"] = result.x
 
-    for params in params_opt:
-        print(f"Thrust: {params[0]:.3f} | Position: {params[1]:.3f}")
+for key, params in params_opt.items():
+    print(f"{key}: px: {params[0]:.3f} | y: {params[1]:.3f}")        
+
+# ==========================================================================
+# Estimate grid bounds
+# ==========================================================================
+
+if auto_grid:
+    px_grid_start = params_opt["min"][0]
+    px_grid_end = params_opt["max"][0]
+    px_grid_diff = fabs(px_grid_end - px_grid_start) / 4.0
+    px_grid_start = min(-1e-6, px_grid_start + px_grid_diff)
+    px_grid_end = px_grid_end - px_grid_diff
+
+    vmax = round((-1.0 * px_grid_end / weight) / 0.1) * 0.1
+    vmax = round(vmax, 1)
+
+    y_grid_start = params_opt["max"][1]
+    y_grid_end = params_opt["min"][1]
+    y_grid_diff = fabs(y_grid_end - y_grid_start)
+    y_grid_start = round(y_grid_start - y_grid_diff, 1)
+    y_grid_end = round(y_grid_end + y_grid_diff, 1)
+
+    xticks = None
+
+    print(f"vmax: {vmax:.3f}")
+    print(f"px_grid_start: {px_grid_start:.3f}, px_grid_end: {px_grid_end:.3f}")
+    print(f"y_grid_start: {y_grid_start:.3f}, y_grid_end: {y_grid_end:.3f}")
 
 # ==========================================================================
 # Parameter grid
 # ==========================================================================
 
-u_space = jnp.linspace(px_grid_start + 0.5, px_grid_end - 0.5, num=num_x)
-v_space = jnp.linspace(y_grid_start - 0.5, y_grid_end + 0.5, num=num_y)
+u_space = jnp.linspace(px_grid_start, px_grid_end, num=num_x)
+v_space = jnp.linspace(y_grid_start, y_grid_end, num=num_y)
 u_grid, v_grid = jnp.meshgrid(u_space, v_space)
 
 # ==========================================================================
@@ -225,8 +258,7 @@ for loss_fn_idx in loss_fns.keys():
 
     # Warmup
     loss_fn = jit(loss_fn)
-    loss = loss_fn(params0)
-    print(f"Loss: {loss}")
+    loss = loss_fn(params0)    
 
     # Create a vectorized version of loss_fn that operates on a single coordinate pair
     def loss_at_point(u, v):
@@ -238,7 +270,7 @@ for loss_fn_idx in loss_fns.keys():
     # Compute loss values for all points in the grid at once
     loss_values = vectorized_loss(u_space, v_space)
 
-    print(f"\nMin: {jnp.min(loss_values):.3f}, Max: {jnp.max(loss_values):.3f}")
+    print(f"\nIndex: {loss_fn_idx}, Min: {jnp.min(loss_values):.3f}, Max: {jnp.max(loss_values):.3f}")
     losses_values[loss_fn_idx] = loss_values
 
 # ==========================================================================
@@ -249,17 +281,15 @@ pretty_matplotlib()
 fig, ax = plt.subplots(figsize=(8, 8))
 
 # Plot optimal design
-if optimize:
-    markers = ["o", "o"]    
-    for params, marker in zip(params_opt, markers):
-        ax.scatter(
-            params[0] * -1.0, 
-            params[1] * 1.0,                
-            marker=marker, 
-            s=100, 
-            facecolor="pink", 
-            edgecolor="black", 
-            zorder=100)
+for key, params in params_opt.items():
+    ax.scatter(
+        params[0] * -1.0, 
+        params[1] * 1.0,                
+        marker="o", 
+        s=100, 
+        facecolor="pink", 
+        edgecolor="black", 
+        zorder=100)
 
 c = ax.pcolor(
     u_grid * -1.0, 
@@ -271,47 +301,52 @@ c = ax.pcolor(
     vmax=vmax,
     alpha=1.0)
 
-fmt = {1: r"$x_n-x_n^{l}=0$", 2: r"$y_i-y_i^{l}=0$"}    
-manual = {1: [(3.2, 10.2)], 2: [(2.3, 7.8)]}
+if plot_contours:
+    # fmt = {1: r"$x_n-x_n^{l}=0$", 2: r"$y_i-y_i^{l}=0$"}    
+    # manual = {1: [(3.2, 10.2)], 2: [(2.3, 7.8)]}
 
-for _idx in loss_fns.keys():
-    if _idx == 0:
-        continue
+    for _idx in loss_fns.keys():
+        if _idx == 0:
+            continue
 
-    cs = ax.contour(
-        u_grid * -1.0, 
-        v_grid * 1.0, 
-        losses_values[_idx],                    
-        levels=[0.0,],
-        norm=norm,
-        colors="black",
-        origin="lower",
-        linewidths=1.2,
-        vmin=vmin,
-        vmax=vmax,
-        linestyles="dashed")
-    
-    # Add labels to the contour lines    
-    # _fmt = {cs.levels[0]: fmt[_idx]}
-    # _manual = manual[_idx]
-    # clabels = ax.clabel(cs, inline=False, fontsize=20, fmt=_fmt, manual=_manual)
-    # for clabel in clabels:
-    #     clabel.set_verticalalignment("bottom")
+        cs = ax.contour(
+            u_grid * -1.0, 
+            v_grid * 1.0, 
+            losses_values[_idx],                    
+            levels=[0.0,],
+            norm=norm,
+            colors="black",
+            origin="lower",
+            linewidths=1.2,
+            vmin=vmin,
+            vmax=vmax,
+            linestyles="dashdot")
+        
+        # Add labels to the contour lines    
+        # _manual = manual[_idx]
+        # clabels = ax.clabel(cs, inline=False, fontsize=20, fmt=_fmt, manual=_manual)
+        # _fmt = {cs.levels[0]: fmt[_idx]}
+        # clabels = ax.clabel(cs, inline=False, fontsize=20, fmt=_fmt)
+        # for clabel in clabels:
+            # clabel.set_verticalalignment("bottom")
 
 if plot_y_hlines:
-    ax.axhline(y=9.0, color="black", linewidth=1.2, linestyle="dotted")
-    ax.axhline(y=10.0, color="black", linewidth=1.2, linestyle="dotted")        
+    for key, params in params_opt.items():
+        ax.axhline(y=params[1], color="black", linewidth=1.2, linestyle="dotted")
 
 # Labels
-ax.set_xlabel(r'$-p_{x,1}$')
-ax.set_ylabel(r'$y_1$')
+ax.set_xlabel(r'$-p_{x}$')
+ax.set_ylabel(r'$y$')
 
 # Ticks
-ax.set_xticks([1.0, 2.0, 3.0, 4.0])
-ax.set_yticks([8.0, 9.0, 10.0, 11.0])
+if xticks is not None:
+    ax.set_xticks(xticks)
+if yticks is not None:
+    ax.set_yticks(yticks)
 
 # Set aspect ratio to be equal to ensure a square plot
-ax.set_aspect('equal', 'box')
+# ax.set_aspect('equal', 'box')
+ax.set_aspect('auto', 'box')
 
 # Create a divider for the existing axes instance
 divider = make_axes_locatable(ax)
@@ -325,14 +360,16 @@ colorbar = fig.colorbar(c, cax=cax, orientation="vertical", extend=None)
 # Set colorbar ticks, tick labels, and label
 colorbar.set_ticks([vmin, vmax])
 colorbar.set_ticklabels([vmin, vmax])
-colorbar.set_label(fr"$\tau$", labelpad=0, loc="center", rotation=0)
+colorbar.set_label(r"$\tau$", labelpad=0, loc="center", rotation=0)
+# colorbar.set_label(r"Thrust, $\tau$", labelpad=0, loc="center", rotation=90)
 
 # Set title
 # ax.set_title(fr"$\tau$", pad=20)
 
 # Save figure
 if save_plot:
-    filename = os.path.join(FIGURES, f"{name}.{plot_extension}")        
+    fig_name = f"{name}_{arch_config['type']}_h{int(arch.height)}_w{int(arch.width)}_wh{int(arch.wall_height * 10.0)}_ww{int(arch.wall_width * 10.0)}_lh{int(arch.lintel_height * 10.0)}_n{int(arch.num_blocks)}"
+    filename = os.path.join(FIGURES, f"{fig_name}.{plot_extension}")
     plt.savefig(filename, bbox_inches='tight', pad_inches=0.05, transparent=True, dpi=300)
     print(f"Saved image to {filename}")
 
