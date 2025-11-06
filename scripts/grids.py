@@ -136,7 +136,7 @@ norm = "linear"
 plot_y_hlines = True
 
 # plotting
-save_plot = True
+save_plot = False
 plot_extension = "png"
 
 # ==========================================================================

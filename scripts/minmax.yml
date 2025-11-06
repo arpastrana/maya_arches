@@ -8,7 +8,6 @@ arch:
   num_blocks: 50  # 50
   slicing_method: 1  # 0: block horizontal, 1: block vertical, 2: linear range vertical
   block_density: 1.0
-  # TODO: update with shrank Maya dimensions
   # circular
   radius: 2.0  # NOTE: to be possibly merged with width or height
   # circular and elliptical 

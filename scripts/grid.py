@@ -116,7 +116,7 @@ loss_fns = {
 }
 
 # optimization
-optimize = True
+optimize = False
 tol = 1e-6
 tol_bounds = 1e-3
 maxiter = 100
@@ -138,7 +138,7 @@ norm = "linear"
 plot_y_hlines = True
 
 # plotting
-save_plot = True
+save_plot = False
 plot_extension = "png"
 
 # ==========================================================================
@@ -292,11 +292,11 @@ for _idx in loss_fns.keys():
         linestyles="dashed")
     
     # Add labels to the contour lines    
-    _fmt = {cs.levels[0]: fmt[_idx]}
-    _manual = manual[_idx]
-    clabels = ax.clabel(cs, inline=False, fontsize=20, fmt=_fmt, manual=_manual)
-    for clabel in clabels:
-        clabel.set_verticalalignment("bottom")
+    # _fmt = {cs.levels[0]: fmt[_idx]}
+    # _manual = manual[_idx]
+    # clabels = ax.clabel(cs, inline=False, fontsize=20, fmt=_fmt, manual=_manual)
+    # for clabel in clabels:
+    #     clabel.set_verticalalignment("bottom")
 
 if plot_y_hlines:
     ax.axhline(y=9.0, color="black", linewidth=1.2, linestyle="dotted")
