@@ -5,7 +5,7 @@ from compas.geometry import Polyline
 from compas.geometry import Polygon
 from compas.geometry import Point
 
-from mayan_vaults.blocks import create_blocks
+from maya_arches.blocks import create_blocks
 
 
 # ------------------------------------------------------------------------------

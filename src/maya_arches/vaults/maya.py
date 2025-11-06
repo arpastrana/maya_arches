@@ -1,7 +1,7 @@
 from compas.geometry import add_vectors
 from compas.geometry import Point
 
-from mayan_vaults.vaults.vaults import Vault
+from maya_arches.vaults.vaults import Vault
 
 
 # ------------------------------------------------------------------------------

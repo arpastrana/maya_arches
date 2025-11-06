@@ -3,7 +3,7 @@ from math import pi
 from math import cos
 from math import sin
 
-from mayan_vaults.vaults.vaults import Vault
+from maya_arches.vaults.vaults import Vault
 
 
 # ------------------------------------------------------------------------------

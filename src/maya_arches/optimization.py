@@ -30,10 +30,10 @@ from jax_cem.equilibrium import EquilibriumModel
 from jax_cem.equilibrium import EquilibriumStructure
 from jax_cem.equilibrium import form_from_eqstate
 
-from mayan_vaults.datastructures import ThrustNetwork
-from mayan_vaults.datastructures import create_topology_from_vault
+from maya_arches.datastructures import ThrustNetwork
+from maya_arches.datastructures import create_topology_from_vault
 
-from mayan_vaults.vaults import Vault
+from maya_arches.vaults import Vault
 
 
 # ------------------------------------------------------------------------------

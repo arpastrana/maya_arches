@@ -20,17 +20,18 @@ from compas.geometry import distance_point_point
 from compas.geometry import intersection_segment_plane
 
 from compas.utilities import pairwise
+from compas.utilities import remap_values
 
 from compas_plotters import Plotter
 from compas_plotters.artists import NetworkArtist
 
-from mayan_vaults import FIGURES
+from maya_arches import FIGURES
 
-from mayan_vaults.vaults import Vault
-from mayan_vaults.vaults import MayaVault
-from mayan_vaults.vaults import CircularVault
-from mayan_vaults.vaults import EllipticalVault
-from mayan_vaults.vaults import EllipticalTaperedVault
+from maya_arches.vaults import Vault
+from maya_arches.vaults import MayaVault
+from maya_arches.vaults import CircularVault
+from maya_arches.vaults import EllipticalVault
+from maya_arches.vaults import EllipticalTaperedVault
 
 
 # ------------------------------------------------------------------------------
@@ -71,11 +72,15 @@ class VaultPlotter(Plotter):
         """
         for i, block in enumerate(vault.blocks.values()):
             # val = i / len(vault.blocks)
+            # val = i / (len(vault.blocks) - 1)
+            # val = remap_values([val], original_min=0.0, original_max=1.0, target_min=0.2, target_max=1.0)[0]
+            # val = 1.0 - val            
             self.add(
                 block.polygon(),
                 linewidth=1.0,
                 edgecolor=Color.grey(),
                 # facecolor=Color(val, val, 0.5),
+                # facecolor=Color(val, val, val),
                 alpha=0.5,
                 zorder=50,
             )
@@ -376,6 +381,7 @@ def plot_thrust_minmax_vault(
 
     for loss_fn_name, network in networks.items():        
         linestyle = "solid" if loss_fn_name == "max" else "dashed"
+        # linestyle = "solid"
         color_blue = Color.from_rgb255(12, 119, 184)
         color_blue_dark = color_blue.darkened(20)
         color = color_blue_dark if loss_fn_name == "max" else color_blue

@@ -1,11 +1,11 @@
-# Mayan Vaults
+# Maya Arches
 
-A Python package for analyzing Mayan vaults using thrust line analysis.
+A Python package for analyzing Maya arches using thrust line analysis.
 
 ## Installation
 
 ```bash
-pip install mayan_vaults
+pip install maya_arches
 ```
 
 ## License

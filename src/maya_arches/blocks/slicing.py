@@ -8,8 +8,8 @@ from compas.geometry import Translation
 from compas.geometry import intersection_polyline_plane
 from compas.geometry import scale_vector
 from compas.geometry import add_vectors
-from mayan_vaults.blocks.helpers import estimate_num_objects_percentages
-from mayan_vaults.blocks.helpers import round_numbers_integer_sum
+from maya_arches.blocks.helpers import estimate_num_objects_percentages
+from maya_arches.blocks.helpers import round_numbers_integer_sum
 
 
 # ------------------------------------------------------------------------------

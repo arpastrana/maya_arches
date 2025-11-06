@@ -2,7 +2,8 @@ from compas.geometry import Polygon
 from compas.geometry import Point
 from compas.geometry import Line
 from compas.geometry import Plane
-from compas.geometry import centroid_polygon
+# from compas.geometry import centroid_polygon
+from compas.geometry import centroid_points
 from compas.geometry import cross_vectors
 from compas.geometry import add_vectors
 from compas.geometry import scale_vector
@@ -11,10 +12,10 @@ from compas.geometry import distance_point_point
 from compas.geometry import allclose
 from compas.utilities import pairwise
 
-from mayan_vaults.blocks.slicing import slice_vault
-from mayan_vaults.blocks.slicing import create_slice_planes_by_block_horizontal
-from mayan_vaults.blocks.slicing import create_slice_planes_by_block_vertical
-from mayan_vaults.blocks.slicing import create_slice_planes_vertical
+from maya_arches.blocks.slicing import slice_vault
+from maya_arches.blocks.slicing import create_slice_planes_by_block_horizontal
+from maya_arches.blocks.slicing import create_slice_planes_by_block_vertical
+from maya_arches.blocks.slicing import create_slice_planes_vertical
 
 
 # ------------------------------------------------------------------------------
@@ -59,7 +60,8 @@ class Block:
         """
         The centroid of the block.
         """
-        return centroid_polygon(self.points())
+        # return centroid_polygon(self.points())
+        return centroid_points(self.points())
 
     def plane(self) -> Plane:
         """

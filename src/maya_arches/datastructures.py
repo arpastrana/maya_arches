@@ -55,6 +55,8 @@ def add_nodes(topology: TopologyDiagram, vault) -> list[int]:
         point = [
             factor * vault.width * 0.5,
             vault.height - vault.thickness * 0.5,
+            # vault.height,
+            # vault.height - vault.thickness,
             0.0
             ]
         key = topology.add_node(Node(i, point))
