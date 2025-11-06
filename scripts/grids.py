@@ -15,16 +15,16 @@ from jax import vmap
 from jax_cem.equilibrium import EquilibriumModel
 from jax_cem.equilibrium import EquilibriumStructure
 
-from mayan_vaults import FIGURES
+from maya_arches import FIGURES
 
-from mayan_vaults.datastructures import create_topology_from_vault
-from mayan_vaults.vaults import create_vault
-from mayan_vaults.optimization import calculate_start_params
-from mayan_vaults.optimization import minimize_thrust_fn
-from mayan_vaults.optimization import constraint_position_support_fn
-from mayan_vaults.optimization import constraint_position_fn
-from mayan_vaults.optimization import solve_thrust_opt_min
-from mayan_vaults.optimization import solve_thrust_opt_max
+from maya_arches.datastructures import create_topology_from_vault
+from maya_arches.vaults import create_vault
+from maya_arches.optimization import calculate_start_params
+from maya_arches.optimization import minimize_thrust_fn
+from maya_arches.optimization import constraint_position_support_fn
+from maya_arches.optimization import constraint_position_fn
+from maya_arches.optimization import solve_thrust_opt_min
+from maya_arches.optimization import solve_thrust_opt_max
 
 from minmax import find_vault_type
 

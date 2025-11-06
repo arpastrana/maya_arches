@@ -10,25 +10,27 @@ from jax_cem.equilibrium import EquilibriumModel
 from jax_cem.equilibrium import EquilibriumStructure
 from jax_cem.equilibrium import form_from_eqstate
 
-from mayan_vaults.datastructures import ThrustNetwork
-from mayan_vaults.datastructures import create_topology_from_vault
+from maya_arches.datastructures import ThrustNetwork
+from maya_arches.datastructures import create_topology_from_vault
 
-from mayan_vaults import DATA
+from maya_arches import DATA
 
-from mayan_vaults.vaults import create_vault
-from mayan_vaults.vaults import Vault
-from mayan_vaults.vaults import MayaVault
-from mayan_vaults.vaults import CircularVault
-from mayan_vaults.vaults import EllipticalVault
-from mayan_vaults.vaults import EllipticalTaperedVault
+from maya_arches.vaults import create_vault
+from maya_arches.vaults import Vault
+from maya_arches.vaults import MayaVault
+from maya_arches.vaults import CircularVault
+from maya_arches.vaults import EllipticalVault
+from maya_arches.vaults import EllipticalTaperedVault
 
-from mayan_vaults.optimization import solve_thrust_minmax_vault
+from maya_arches import FIGURES
 
-from mayan_vaults.plotting import VaultPlotter
-from mayan_vaults.plotting import plot_thrust_minmax_vault
+from maya_arches.optimization import solve_thrust_minmax_vault
 
-from mayan_vaults.optimization import constraint_thrust_fn
-from mayan_vaults.optimization import calculate_start_params
+from maya_arches.plotting import VaultPlotter
+from maya_arches.plotting import plot_thrust_minmax_vault
+
+from maya_arches.optimization import constraint_thrust_fn
+from maya_arches.optimization import calculate_start_params
 
 
 def run_tna_experiment():
@@ -52,7 +54,7 @@ def run_tna_experiment():
     plot_thrust_minmax_vault(vault, networks, **config["plotting"])
 
     # Export results
-    export_networks(vault, networks, **config["export"])
+    # export_networks(vault, networks, **config["export"])
 
 
 def find_vault_type(vault_config: dict) -> type[Vault]:
@@ -77,6 +79,10 @@ def calculate_thrust_network(vault: Vault, check_constraint: bool = False) -> Th
     """
     # Instantiate a topology diagram
     topology = create_topology_from_vault(vault, px0=-1.0)
+    # topology = create_topology_from_vault(vault, px0=-0.16)
+    # topology = create_topology_from_vault(vault, px0=-0.25)
+    # topology = create_topology_from_vault(vault, px0=-2.0)
+    # topology = create_topology_from_vault(vault, px   0=4.0)
     print(topology)
 
     # JAX CEM - form finding
@@ -121,8 +127,13 @@ def plot_thrust_network(vault, network):
     plotter.plot_vault_blocks(vault)
     plotter.plot_vault_blocks_lines(vault)
     
-    plotter.plot_thrust_network(network)
     plotter.zoom_extents()
+
+    plotter.plot_thrust_network(network, linewidth=(4.0, 7.0))
+
+    # fig_path = os.path.join(FIGURES, f"thrust_network_blocks_horizontal.pdf")
+    # plotter.save(fig_path, transparent=True, bbox_inches="tight")
+    # print(f"\nSaved figure to {fig_path}")
 
     plotter.show()
 
