@@ -12,6 +12,6 @@ htmlcov
 temp/
 figures/
 data/
-_archive/
+**/_archive/
 *.ipynb
 *.gh
