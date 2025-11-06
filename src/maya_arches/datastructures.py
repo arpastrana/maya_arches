@@ -11,21 +11,23 @@ from compas_cem.elements import TrailEdge
 from compas_cem.loads import NodeLoad
 from compas_cem.supports import NodeSupport
 
+from maya_arches.arches.arch import Arch
+
 
 # ------------------------------------------------------------------------------
 # Instantiate a topology diagram
 # ------------------------------------------------------------------------------
 
-def create_topology_from_vault(vault, px0: float = -1.0) -> TopologyDiagram:
+def create_topology_from_arch(arch: Arch, px0: float = -1.0) -> TopologyDiagram:
     """
-    Create a topology diagram with nodes, loads, trail edges and supports from a vault.
+    Create a topology diagram with nodes, loads, trail edges and supports from an arch.
     """
     topology = TopologyDiagram()
 
-    node_keys = add_nodes(topology, vault)
-    add_loads(topology, vault, node_keys, px0)
+    node_keys = add_nodes(topology, arch)
+    add_loads(topology, arch, node_keys, px0)
     add_supports(topology, node_keys)
-    add_trail_edges(topology, node_keys, vault)
+    add_trail_edges(topology, node_keys, arch)
 
     topology.build_trails(auxiliary_trails=False)
 
@@ -36,7 +38,7 @@ def create_topology_from_vault(vault, px0: float = -1.0) -> TopologyDiagram:
 # Add Nodes
 # ------------------------------------------------------------------------------
 
-def add_nodes(topology: TopologyDiagram, vault) -> list[int]:
+def add_nodes(topology: TopologyDiagram, arch: Arch) -> list[int]:
     """
     Add nodes to the topology diagram.
 
@@ -47,23 +49,23 @@ def add_nodes(topology: TopologyDiagram, vault) -> list[int]:
     they represent the origin and the support of a trail, respectively.
     """
     num_nodes_extra = 2
-    num_nodes = len(vault.blocks) + num_nodes_extra
+    num_nodes = len(arch.blocks) + num_nodes_extra
 
     node_keys = []
     for i in range(num_nodes):
         factor = 1.0 - i / (num_nodes - 1)
         point = [
-            factor * vault.width * 0.5,
-            vault.height - vault.thickness * 0.5,
-            # vault.height,
-            # vault.height - vault.thickness,
+            factor * arch.width * 0.5,
+            arch.height - arch.thickness * 0.5,
+            # arch.height,
+            # arch.height - arch.thickness,
             0.0
             ]
         key = topology.add_node(Node(i, point))
         node_keys.append(key)
 
-    msg = f"Nodes: {len(node_keys)} vs. {len(vault.blocks) + num_nodes_extra}"
-    assert (len(node_keys)) == len(vault.blocks) + num_nodes_extra, msg
+    msg = f"Nodes: {len(node_keys)} vs. {len(arch.blocks) + num_nodes_extra}"
+    assert (len(node_keys)) == len(arch.blocks) + num_nodes_extra, msg
 
     return node_keys
 
@@ -84,7 +86,7 @@ def add_supports(topology: TopologyDiagram, node_keys: list[int]) -> None:
 # Add Loads
 # ------------------------------------------------------------------------------
 
-def add_loads(topology: TopologyDiagram, vault, node_keys: list[int], px0: float) -> None:
+def add_loads(topology: TopologyDiagram, arch: Arch, node_keys: list[int], px0: float) -> None:
     """
     Add loads to the topology diagram.
     """
@@ -92,7 +94,7 @@ def add_loads(topology: TopologyDiagram, vault, node_keys: list[int], px0: float
     for key in topology.nodes():
 
         # skip nodes without a block (first and last nodes)
-        block = vault.blocks.get(key)
+        block = arch.blocks.get(key)
         if block is None:
             continue
 
@@ -112,14 +114,14 @@ def add_loads(topology: TopologyDiagram, vault, node_keys: list[int], px0: float
 # Add Trail Edges
 # ------------------------------------------------------------------------------
 
-def add_trail_edges(topology: TopologyDiagram, node_keys: list[int], vault) -> None:
+def add_trail_edges(topology: TopologyDiagram, node_keys: list[int], arch: Arch) -> None:
     """
     """
     for u, v in pairwise(node_keys):        
         if topology.is_node_support(v):            
             plane = Plane((0.0, 0.0, 0.0), (0.0, 1.0, 0.0))
         else:
-            block = vault.blocks.get(v)
+            block = arch.blocks.get(v)
             plane = block.plane()
 
         topology.add_edge(TrailEdge(u, v, length=-1.0, plane=plane))
@@ -128,7 +130,6 @@ def add_trail_edges(topology: TopologyDiagram, node_keys: list[int], vault) -> N
 # ------------------------------------------------------------------------------
 # Thrust Network
 # ------------------------------------------------------------------------------
-
 
 class ThrustNetwork(FormDiagram):
     """

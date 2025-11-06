@@ -12,9 +12,9 @@ from maya_arches.blocks import create_blocks
 # Abstract base class
 # ------------------------------------------------------------------------------
 
-class Vault(ABC):
+class Arch(ABC):
     """
-    A base class for vaults.
+    A base class for arches.
     """
     def __init__(self, **kwargs):
         self.blocks = {}
@@ -23,7 +23,7 @@ class Vault(ABC):
     @abstractmethod
     def height(self) -> float:
         """
-        The height of the vault.
+        The height of the arch.
         """
         raise NotImplementedError
     
@@ -31,7 +31,7 @@ class Vault(ABC):
     @abstractmethod
     def width(self) -> float:
         """
-        The width of the vault.
+        The width of the arch.
         """
         raise NotImplementedError
 
@@ -39,7 +39,7 @@ class Vault(ABC):
     @abstractmethod
     def thickness(self) -> float:
         """
-        The thickness of the vault.
+        The thickness of the arch.
         """
         raise NotImplementedError
     
@@ -47,7 +47,7 @@ class Vault(ABC):
     @abstractmethod
     def support_width(self) -> float:
         """
-        The width of the support.
+        The width of the arch's support.
         """
         raise NotImplementedError
 
@@ -55,53 +55,53 @@ class Vault(ABC):
     @abstractmethod
     def span(self) -> float:
         """
-        The span of the vault.
+        The span of the arch.
         """
         raise NotImplementedError
 
     @abstractmethod
     def points(self) -> list[Point]:
         """
-        The points on the perimeter of the vault.
+        The points on the perimeter of the arch.
         """
         raise NotImplementedError
 
     @property    
     def span_half(self) -> float:
         """
-        Half of the span of the vault.
+        Half of the span of the arch.
         """
         return self.span / 2.0
     
     @property
     def num_blocks(self) -> int:
         """
-        The number of blocks in the vault.
+        The number of blocks in the arch.
         """
         return len(self.blocks)
 
     def blockify(self, num_blocks: int, density: float, slicing_method: int) -> None:
         """
-        Create blocks from the vault.
+        Generate the arch's blocks.
         """        
         self.blocks = create_blocks(self, num_blocks, density, slicing_method)
 
-    def polyline(self):
+    def polyline(self) -> Polyline:
         """
-        The silhouette of the vault as a polyline.
+        The silhouette of the arch as a polyline.
         """
         points = self.points()
         return Polyline(points + points[:1])
 
-    def polygon(self):
+    def polygon(self) -> Polygon:
         """
-        The silhouette of the vault as a polygon.
+        The silhouette of the arch as a polygon.
         """
         return Polygon(self.points())
     
     def weight(self) -> float:
         """
-        The weight of the vault.
+        The weight of the arch.
 
         Notes
         -----
@@ -111,7 +111,7 @@ class Vault(ABC):
         return sum(block.weight() for block in self.blocks.values())
     
     def __str__(self, params_other: dict = None) -> str:
-        """Return a string representation of the Vault object."""
+        """Return a string representation of the Arch object."""
 
         params = {
             'height': self.height,
@@ -136,17 +136,17 @@ class Vault(ABC):
 # Helper functions
 # ------------------------------------------------------------------------------
 
-def create_vault(
-        vault_cls: type[Vault],
+def create_arch(
+        arch_cls: type[Arch],
         num_blocks: int,
         slicing_method: int,
         block_density: float,
-        **vault_kwargs
-    ) -> Vault:
+        **arch_kwargs
+    ) -> Arch:
     """
-    Create a blockified vault.
+    Create a blockified arch.
     """
-    vault = vault_cls(**vault_kwargs)    
-    vault.blockify(num_blocks, block_density, slicing_method)
+    arch = arch_cls(**arch_kwargs)    
+    arch.blockify(num_blocks, block_density, slicing_method)
 
-    return vault
+    return arch

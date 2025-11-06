@@ -3,16 +3,16 @@ from math import pi
 from math import cos
 from math import sin
 
-from maya_arches.vaults.vaults import Vault
+from maya_arches.arches import Arch
 
 
 # ------------------------------------------------------------------------------
-# Circular vault
+# Circular arch
 # ------------------------------------------------------------------------------
 
-class CircularVault(Vault):
+class CircularArch(Arch):
     """
-    A half-circular vault.
+    A half-circular arch.
     """
     def __init__(self, radius: float, thickness: float, **kwargs):
         super().__init__()
@@ -23,49 +23,49 @@ class CircularVault(Vault):
 
     def _check_thickness(self):
         """
-        Check the thickness of the vault.
+        Check the thickness of the arch.
         """
         if self.thickness > self.radius:
-            raise ValueError("The thickness of the vault cannot be greater than the radius.")
+            raise ValueError("Arch thickness cannot be greater than the radius!")
 
     @property
     def height(self) -> float:
         """
-        The height of the vault.
+        The height of the arch.
         """
         return self.radius
 
     @property
     def width(self) -> float:
         """
-        The width of the vault.
+        The width of the arch.
         """
         return self.radius * 2.0
 
     @property    
     def thickness(self) -> float:
         """
-        The thickness of the vault.
+        The thickness of the arch.
         """
         return self._thickness
 
     @property
     def support_width(self) -> float:
         """
-        The width of the support.
+        The width of the arch's support.
         """
         return self.thickness
 
     @property
     def span(self) -> float:
         """
-        The span of the vault.
+        The span of the arch.
         """
         return 2 * (self.radius - self.thickness)
     
     def points(self, num_points: int = 100) -> list[Point]:
         """
-        The points of the vault.
+        The points of the arch.
         """        
         radius_extrados = self.radius
         points_extrados = points_circle_arc_half(radius_extrados, num_points)    
@@ -76,7 +76,7 @@ class CircularVault(Vault):
         return points_extrados + points_intrados[::-1]
 
     def __str__(self) -> str:
-        """Return a string representation of the CircularVault object."""
+        """Return a string description of this arch."""
         params = {'radius': self.radius, 'thickness': self.thickness}
 
         return super().__str__(params)

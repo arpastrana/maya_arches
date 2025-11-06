@@ -10,6 +10,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import jax.numpy as jnp
 from jax import jit
 from jax import vmap
+from jax import Array
 
 # jax cem
 from jax_cem.equilibrium import EquilibriumModel
@@ -17,8 +18,8 @@ from jax_cem.equilibrium import EquilibriumStructure
 
 from maya_arches import FIGURES
 
-from maya_arches.datastructures import create_topology_from_vault
-from maya_arches.vaults import create_vault
+from maya_arches.datastructures import create_topology_from_arch
+from maya_arches.arches import create_arch
 from maya_arches.optimization import calculate_start_params
 from maya_arches.optimization import minimize_thrust_fn
 from maya_arches.optimization import constraint_position_support_fn
@@ -26,7 +27,8 @@ from maya_arches.optimization import constraint_position_fn
 from maya_arches.optimization import solve_thrust_opt_min
 from maya_arches.optimization import solve_thrust_opt_max
 
-from minmax import find_vault_type
+from minmax import find_arch_type
+from maya_arches.arches import Arch
 
 
 # ==========================================================================
@@ -52,7 +54,7 @@ def pretty_matplotlib():
     plt.rc('ytick.minor', size=5)
 
 
-def find_constraint_position_y_idx(vault, structure, tol=1e-6):
+def find_constraint_position_y_idx(arch: Arch, structure: EquilibriumStructure, tol: float = 1e-6) -> tuple[int, float]:
     """
     Find the index of the node that is the last node on the corbel before the wall.
     """
@@ -69,7 +71,7 @@ def find_constraint_position_y_idx(vault, structure, tol=1e-6):
         if key == len(structure.nodes) - 1:
             continue
 
-        block = vault.blocks[key]
+        block = arch.blocks[key]
         plane_line = block.plane_line()
         start = plane_line.start
         end = plane_line.end
@@ -86,9 +88,9 @@ def find_constraint_position_y_idx(vault, structure, tol=1e-6):
     return index, ymin
 
 
-def constraint_position_y_fn(params, model, structure, ymin, index):
+def constraint_position_y_fn(params: Array, model: EquilibriumModel, structure: EquilibriumStructure, ymin: float, index: int) -> Array:
     """
-    The constraint function to ensure the thrust network is within the vault.
+    The constraint function to ensure the thrust network is within the arch.
     """
     # reassemble model
     y = constraint_position_fn(params, model, structure)[index]
@@ -145,12 +147,12 @@ plot_extension = "png"
 with open("minmax.yml") as file:
     config = yaml.load(file, Loader=yaml.FullLoader)
 
-vault_type = find_vault_type(config["vault"])
-vault = create_vault(vault_type, **config["vault"])
-print(vault)
+arch_type = find_arch_type(config["arch"])
+arch = create_arch(arch_type, **config["arch"])
+print(arch)
 
 # Instantiate a topology diagram
-topology = create_topology_from_vault(vault, px0=px0)
+topology = create_topology_from_arch(arch, px0=px0)
 
 # JAX CEM - form finding
 structure = EquilibriumStructure.from_topology_diagram(topology)
@@ -166,7 +168,7 @@ def loss_fn(params, *args, **kwargs):
     return _loss_fn(params, model, structure, *args, **kwargs)
 
 if loss_fn_idx == 2:
-    index, ymin = find_constraint_position_y_idx(vault, structure)
+    index, ymin = find_constraint_position_y_idx(arch, structure)
     print(f"Index: {index}, Ymin: {ymin}")
     loss_fn = partial(loss_fn, ymin=ymin, index=index)
 
@@ -179,7 +181,7 @@ print(f"Loss: {loss}")
 if optimize:
     params_opt = []
     result = solve_thrust_opt_min(
-        vault,
+        arch,
         params0,
         model,
         structure,
@@ -190,7 +192,7 @@ if optimize:
     params_opt.append(result.x)
 
     result = solve_thrust_opt_max(
-        vault,
+        arch,
         params0,
         model,
         structure,
@@ -314,7 +316,7 @@ labels = {
 
 # Save figure
 if save_plot:
-    filename = os.path.join(FIGURES, f"grid_{loss_fn_idx}.{plot_extension}")        
+    filename = os.path.join(FIGURES, f"{name}_{loss_fn_idx}.{plot_extension}")        
     plt.savefig(filename, bbox_inches='tight', pad_inches=0.05, transparent=True, dpi=300)
     print(f"Saved image to {filename}")
 

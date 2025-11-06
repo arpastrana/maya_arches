@@ -1,4 +1,4 @@
-vault:
+arch:
   type: maya  # maya, circular, elliptical, elliptical_tapered
   height: 5.0
   width: 4.0
@@ -14,8 +14,8 @@ vault:
   # circular and elliptical 
   thickness: 0.67
   # elliptical tapered 
-  thickness_top: 0.5  # elliptical tapered vault top thickness
-  thickness_bottom: 0.67  # elliptical tapered vault bottom thickness
+  thickness_top: 0.5  # elliptical tapered arch top thickness
+  thickness_bottom: 0.67  # elliptical tapered arch bottom thickness
 
 optimization:
   solve_min: True
@@ -37,7 +37,7 @@ plotting:
   plot_loads: False
   plot_thrusts: False
   show_plot: True
-  save_plot: True
+  save_plot: False
 
 export:
   export_min: False

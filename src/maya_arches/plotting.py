@@ -27,52 +27,54 @@ from compas_plotters.artists import NetworkArtist
 
 from maya_arches import FIGURES
 
-from maya_arches.vaults import Vault
-from maya_arches.vaults import MayaVault
-from maya_arches.vaults import CircularVault
-from maya_arches.vaults import EllipticalVault
-from maya_arches.vaults import EllipticalTaperedVault
+from maya_arches.arches import Arch
+from maya_arches.arches import MayaArch
+from maya_arches.arches import CircularArch
+from maya_arches.arches import EllipticalArch
+from maya_arches.arches import EllipticalTaperedArch
+
+from maya_arches.datastructures import ThrustNetwork
 
 
 # ------------------------------------------------------------------------------
 # Plotter
 # ------------------------------------------------------------------------------
 
-class VaultPlotter(Plotter):
+class ArchPlotter(Plotter):
     """
-    A wrapper around the compas plotter to plot a vault.
+    A wrapper around the compas plotter to plot an arch.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def plot_vault(self, vault, plot_other_half: bool = True) -> None:
+    def plot_arch(self, arch: Arch, plot_other_half: bool = True) -> None:
         """
-        Plot the vault.
+        Plot the arch.
         """
         self.add(
-            vault.polyline(),
+            arch.polyline(),
             linestyle="solid",
             lineweight=2.0,
             draw_points=False
         )
 
         if plot_other_half:
-            plane = Plane((vault.width / 2.0, 0.0, 0.0), (1.0, 0.0, 0.0))
+            plane = Plane((arch.width / 2.0, 0.0, 0.0), (1.0, 0.0, 0.0))
             R = Reflection.from_plane(plane)
             self.add(
-                vault.polygon().transformed(R),
+                arch.polygon().transformed(R),
                 linewidth=0.0,
                 facecolor=Color.from_rgb255(240, 240, 240),
                 zorder=50
             )
 
-    def plot_vault_blocks(self, vault) -> None:
+    def plot_arch_blocks(self, arch: Arch) -> None:
         """
-        Plot the vault blocks.
+        Plot the arch's blocks.
         """
-        for i, block in enumerate(vault.blocks.values()):
-            # val = i / len(vault.blocks)
-            # val = i / (len(vault.blocks) - 1)
+        for i, block in enumerate(arch.blocks.values()):
+            # val = i / len(arch.blocks)
+            # val = i / (len(arch.blocks) - 1)
             # val = remap_values([val], original_min=0.0, original_max=1.0, target_min=0.2, target_max=1.0)[0]
             # val = 1.0 - val            
             self.add(
@@ -85,11 +87,11 @@ class VaultPlotter(Plotter):
                 zorder=50,
             )
 
-    def plot_vault_blocks_lines(self, vault) -> None:
+    def plot_arch_blocks_lines(self, arch: Arch) -> None:
         """
-        Plot the vault blocks lines.
+        Plot the arch's blocks lines.
         """
-        for block in vault.blocks.values():
+        for block in arch.blocks.values():
             self.add(
                 block.plane_line(),
                 draw_as_segment=True,
@@ -101,7 +103,7 @@ class VaultPlotter(Plotter):
 
     def plot_thrust_network(
             self,
-            network,
+            network: ThrustNetwork,
             draw_as_polyline: bool = False,
             linewidth: Union[float, Tuple[float, float]] = 3.0,
             linestyle: str = "solid",
@@ -181,7 +183,7 @@ class VaultPlotter(Plotter):
             )
 
 
-    def plot_thrust_network_loads(self, network, scale: float = 1.0) -> None:
+    def plot_thrust_network_loads(self, network: ThrustNetwork, scale: float = 1.0) -> None:
         """
         Plot the thrust network loads.
         """
@@ -205,7 +207,7 @@ class VaultPlotter(Plotter):
                     color=color
                 )
 
-    def plot_thrust_network_thrusts(self, network, scale: float = 1.0) -> None:
+    def plot_thrust_network_thrusts(self, network: ThrustNetwork, scale: float = 1.0) -> None:
         """
         Plot the thrust network thrusts (horizontal reactions at supports).
         """
@@ -229,7 +231,7 @@ class VaultPlotter(Plotter):
                         color=Color.grey()
                     )
 
-    def plot_constraints(self, vault, network, tol_bounds: float = 1e-3, tol_constraints: float = 1e-3, pointsize: float = 6.0) -> None:
+    def plot_constraints(self, arch: Arch, network: ThrustNetwork, tol_bounds: float = 1e-3, tol_constraints: float = 1e-3, pointsize: float = 6.0) -> None:
         """
         Plot the constraints.
         """
@@ -238,14 +240,14 @@ class VaultPlotter(Plotter):
 
         # Special cases
         points_first_last = []
-        block_height_avg = sum(block.height() for block in vault.blocks.values()) / len(vault.blocks)
+        block_height_avg = sum(block.height() for block in arch.blocks.values()) / len(arch.blocks)
 
         # First node
         node_key = 0
         point = Point(*network.node_coordinates(node_key))        
         
         # Check lower bound        
-        if fabs(point.y - (vault.height - vault.thickness + tol_bounds)) < tol_bounds:
+        if fabs(point.y - (arch.height - arch.thickness + tol_bounds)) < tol_bounds:
             self.add(
                     point,
                     size=pointsize,
@@ -254,7 +256,7 @@ class VaultPlotter(Plotter):
                 )
             points_first_last.append(point)
         # Check upper bound
-        elif fabs((vault.height - tol_bounds) - point.y) < tol_bounds:            
+        elif fabs((arch.height - tol_bounds) - point.y) < tol_bounds:            
             self.add(
                     point,
                     size=pointsize,
@@ -276,7 +278,7 @@ class VaultPlotter(Plotter):
                 )
             points_first_last.append(point)
         # Check upper bound
-        elif fabs(point.x - vault.support_width) <= tol_bounds:
+        elif fabs(point.x - arch.support_width) <= tol_bounds:
             self.add(
                     point,
                     size=pointsize,
@@ -288,7 +290,7 @@ class VaultPlotter(Plotter):
         # Intermediate nodes
         for node in network.nodes():
 
-            block = vault.blocks.get(node)
+            block = arch.blocks.get(node)
             if block is None:
                 continue
 
@@ -347,8 +349,8 @@ class ThrustNetworkArtist(NetworkArtist):
 # Experiment code
 # ------------------------------------------------------------------------------
 
-def plot_thrust_minmax_vault(
-        vault: Vault, 
+def plot_thrust_minmax_arch(
+        arch: Arch, 
         networks: dict,
         plot_other_half: bool = True,
         plot_blocks: bool = True,
@@ -367,15 +369,15 @@ def plot_thrust_minmax_vault(
     Plot the thrust minimization and maximization results.
     """
     print("\n***** Plotting *****\n")
-    plotter = VaultPlotter(figsize=(8, 8))
+    plotter = ArchPlotter(figsize=(8, 8))
 
-    plotter.plot_vault(vault, plot_other_half)
+    plotter.plot_arch(arch, plot_other_half)
 
     if plot_blocks:
-        plotter.plot_vault_blocks(vault)
+        plotter.plot_arch_blocks(arch)
 
     if plot_blocks_lines:
-        plotter.plot_vault_blocks_lines(vault)
+        plotter.plot_arch_blocks_lines(arch)
 
     plotter.zoom_extents()
 
@@ -396,7 +398,7 @@ def plot_thrust_minmax_vault(
             )
 
         if plot_constraints:
-            plotter.plot_constraints(vault, network, tol_bounds, tol_constraints)
+            plotter.plot_constraints(arch, network, tol_bounds, tol_constraints)
 
         if plot_loads:
             plotter.plot_thrust_network_loads(network, forcescale)
@@ -406,14 +408,14 @@ def plot_thrust_minmax_vault(
 
     if save_plot:
         solution_names = "".join(networks.keys())
-        if isinstance(vault, MayaVault):
-            fig_name = f"{solution_names}_maya_h{int(vault.height)}_w{int(vault.width)}_wh{int(vault.wall_height * 10.0)}_ww{int(vault.wall_width * 10.0)}_lh{int(vault.lintel_height * 10.0)}_n{int(vault.num_blocks)}.pdf"
-        elif isinstance(vault, CircularVault):
-            fig_name = f"{solution_names}_circle_r{int(vault.radius)}_t{int(vault.thickness * 10)}_n{int(vault.num_blocks)}.pdf"        
-        elif isinstance(vault, EllipticalTaperedVault):
-            fig_name = f"{solution_names}_ellipse_tapered_h{int(vault.height)}_w{int(vault.width)}_tt{int(vault.thickness_top * 10)}_tb{int(vault.thickness_bottom * 10)}_n{int(vault.num_blocks)}.pdf"
-        elif isinstance(vault, EllipticalVault):
-            fig_name = f"{solution_names}_ellipse_h{int(vault.height)}_w{int(vault.width)}_t{int(vault.thickness * 10)}_n{int(vault.num_blocks)}.pdf"
+        if isinstance(arch, MayaArch):
+            fig_name = f"{solution_names}_maya_h{int(arch.height)}_w{int(arch.width)}_wh{int(arch.wall_height * 10.0)}_ww{int(arch.wall_width * 10.0)}_lh{int(arch.lintel_height * 10.0)}_n{int(arch.num_blocks)}.pdf"
+        elif isinstance(arch, CircularArch):
+            fig_name = f"{solution_names}_circle_r{int(arch.radius)}_t{int(arch.thickness * 10)}_n{int(arch.num_blocks)}.pdf"        
+        elif isinstance(arch, EllipticalTaperedArch):
+            fig_name = f"{solution_names}_ellipse_tapered_h{int(arch.height)}_w{int(arch.width)}_tt{int(arch.thickness_top * 10)}_tb{int(arch.thickness_bottom * 10)}_n{int(arch.num_blocks)}.pdf"
+        elif isinstance(arch, EllipticalArch):
+            fig_name = f"{solution_names}_ellipse_h{int(arch.height)}_w{int(arch.width)}_t{int(arch.thickness * 10)}_n{int(arch.num_blocks)}.pdf"
         fig_path = os.path.join(FIGURES, fig_name)
         plotter.save(fig_path, transparent=True, bbox_inches="tight")
         print(f"\nSaved figure to {fig_path}")

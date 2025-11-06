@@ -1,4 +1,5 @@
 from typing import List
+from typing import TYPE_CHECKING
 
 from compas.geometry import Line
 from compas.geometry import Plane
@@ -8,8 +9,12 @@ from compas.geometry import Translation
 from compas.geometry import intersection_polyline_plane
 from compas.geometry import scale_vector
 from compas.geometry import add_vectors
-from maya_arches.blocks.helpers import estimate_num_objects_percentages
-from maya_arches.blocks.helpers import round_numbers_integer_sum
+
+from maya_arches.blocks import estimate_num_objects_percentages
+from maya_arches.blocks import round_numbers_integer_sum
+
+if TYPE_CHECKING:
+    from maya_arches.arches import Arch
 
 
 # ------------------------------------------------------------------------------
@@ -36,13 +41,13 @@ def create_planes_linrange(origin_start: Point, direction: Vector, distance: flo
 # Horizontal slicing
 # ------------------------------------------------------------------------------
 
-def create_slice_planes_by_block_horizontal(vault, num_planes: int = 4) -> List[Line]:
+def create_slice_planes_by_block_horizontal(arch: "Arch", num_planes: int = 4) -> List[Line]:
     """
-    Slices a vault horizontally, creating planar line slices per block.
+    Slices an arch horizontally, creating planar line slices per block.
 
     Notes
     ------
-    This function will first separate the vault into separate wall, corbel and lintel blocks.
+    This function will first separate the arch into separate wall, corbel and lintel blocks.
     The minimum number of slices is thus equal to 4.
 
     Afterwards, if the number of slices is greater than 4, the slices will be
@@ -54,7 +59,7 @@ def create_slice_planes_by_block_horizontal(vault, num_planes: int = 4) -> List[
     assert num_planes >= num_planes_min, f"The number of planes must be greater than or equal to {num_planes_min}"
 
     # Create planes
-    heights = [vault.wall_height, vault.corbel_height, vault.lintel_height]
+    heights = [arch.wall_height, arch.corbel_height, arch.lintel_height]
     num_meta_blocks = len(heights)
 
     # Minimum number of planes is 2 per segment
@@ -105,17 +110,17 @@ def create_slice_planes_by_block_horizontal(vault, num_planes: int = 4) -> List[
 # Vertical slicing
 # ------------------------------------------------------------------------------
 
-def create_slice_planes_by_block_vertical(vault, num_planes: int = 3) -> List[Line]:
+def create_slice_planes_by_block_vertical(arch: "Arch", num_planes: int = 3) -> List[Line]:
     """
-    Slices a vault vertically, creating planar line slices per block.
+    Slices an arch vertically, creating planar line slices per block.
 
     Notes
     ------
-    This function will first separate the vault into separate wall and span blocks.
+    This function will first separate the arch into separate wall and span blocks.
     The minimum number of slices is thus equal to 2.
 
     Afterwards, if the number of slices is greater than 2, the slices will be
-    evenly distributed between the base of the vault and the base of the span.
+    evenly distributed between the base of the arch and the base of the span.
 
     The lintel will be sliced as well.
     """
@@ -123,7 +128,7 @@ def create_slice_planes_by_block_vertical(vault, num_planes: int = 3) -> List[Li
     assert num_planes >= num_planes_min, f"The number of planes must be greater than or equal to {num_planes_min}"
 
     # Create planes
-    widths = [vault.wall_width, vault.span_half]
+    widths = [arch.wall_width, arch.span_half]
     num_meta_blocks = len(widths)
 
     # Minimum number of planes is 2 per segment
@@ -169,9 +174,9 @@ def create_slice_planes_by_block_vertical(vault, num_planes: int = 3) -> List[Li
     return planes
 
 
-def create_slice_planes_vertical(vault, num_planes: int = 2) -> List[Line]:
+def create_slice_planes_vertical(arch: "Arch", num_planes: int = 2) -> List[Line]:
     """
-    Slices a vault vertically, creating uniformly spaced planar line slices per block.
+    Slices an arch vertically, creating uniformly spaced planar line slices per block.
     """
     num_planes_min = 2
     assert num_planes >= num_planes_min, f"The number of planes must be greater than or equal to {num_planes_min}"
@@ -180,7 +185,7 @@ def create_slice_planes_vertical(vault, num_planes: int = 2) -> List[Line]:
     planes = create_planes_linrange(
         Point(0.0, 0.0, 0.0),
         Vector(1.0, 0.0, 0.0),
-        vault.width * 0.4999,  # NOTE: This is a hack to avoid the line being too close to the edge of the vault
+        arch.width * 0.4999,  # NOTE: This is a hack to avoid the line being too close to the edge of the arch
         num_planes
     )
 
@@ -193,12 +198,12 @@ def create_slice_planes_vertical(vault, num_planes: int = 2) -> List[Line]:
 # Caller functions
 # ------------------------------------------------------------------------------
 
-def slice_vault(vault, planes: List[Plane]) -> List[Line]:
+def slice_arch(arch: "Arch", planes: List[Plane]) -> List[Line]:
     """
-    Slices a vault with a sequence of planes.
+    Slices an arch with a sequence of planes.
     """
     lines = []
-    polyline = vault.polyline()
+    polyline = arch.polyline()
 
     for i, plane in enumerate(planes):
 

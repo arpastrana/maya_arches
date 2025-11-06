@@ -1,16 +1,16 @@
 from compas.geometry import add_vectors
 from compas.geometry import Point
 
-from maya_arches.vaults.vaults import Vault
+from maya_arches.arches import Arch
 
 
 # ------------------------------------------------------------------------------
-# MayaVault
+# MayaArch
 # ------------------------------------------------------------------------------
 
-class MayaVault(Vault):
+class MayaArch(Arch):
     """
-    One half of the 2D geometry of a Maya vault.
+    One half of the 2D geometry of a Maya arch.
     """
     def __init__(
             self, 
@@ -36,35 +36,35 @@ class MayaVault(Vault):
     @property
     def height(self) -> float:
         """
-        The height of the vault.
+        The height of the arch.
         """
         return self._height
 
     @property
     def width(self) -> float:
         """
-        The width of the vault.
+        The width of the arch.
         """
         return self._width
 
     @property    
     def thickness(self) -> float:
         """
-        The thickness of the vault, considered as the lintel height.
+        The thickness of the arch, considered as the lintel height.
         """
         return self.lintel_height
 
     @property
     def support_width(self) -> float:
         """
-        The width of the support.
+        The width of the arch's support.
         """
         return self.wall_width
 
     @property
     def span(self) -> float:
         """
-        The span of the vault.
+        The span of the arch.
         """
         return self.width - 2 * self.wall_width
     
@@ -91,22 +91,22 @@ class MayaVault(Vault):
 
     def _check_width(self) -> None:
         """
-        Checks if the width of the vault makes sense.
+        Checks if the width of the arch makes sense.
         """
-        assert self.width > self.wall_width, "The width of the wall is greater than the vault's!"
+        assert self.width > self.wall_width, "The width of the wall is greater than the arch's!"
 
     def _check_height(self) -> None:
         """
-        Checks if the height of the vault makes sense.
+        Checks if the height of the arch makes sense.
         """
-        msg = "The height of the vault is smaller than the wall's and the lintel's combined!"
+        msg = "The height of the arch is smaller than the wall's and the lintel's combined!"
         assert self.height >= (self.wall_height + self.lintel_height), msg
 
         if self.lintel_height > self.wall_height:
             print("\nWarning! The lintel is deeper than the walls")
 
     def __str__(self) -> str:
-        """Return a string representation of the Maya vault."""
+        """Return a string description of this arch."""
         params = {            
             'wall_height': self.wall_height,
             'wall_width': self.wall_width,

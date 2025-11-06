@@ -31,9 +31,9 @@ from jax_cem.equilibrium import EquilibriumStructure
 from jax_cem.equilibrium import form_from_eqstate
 
 from maya_arches.datastructures import ThrustNetwork
-from maya_arches.datastructures import create_topology_from_vault
+from maya_arches.datastructures import create_topology_from_arch
 
-from maya_arches.vaults import Vault
+from maya_arches.arches import Arch
 
 
 # ------------------------------------------------------------------------------
@@ -113,12 +113,12 @@ def calculate_start_params(topology: TopologyDiagram) -> jax.Array:
 # Bounds
 # ------------------------------------------------------------------------------
 
-def calculate_params_bounds(vault, tol: float) -> list[tuple[float, float]]:
+def calculate_params_bounds(arch: Arch, tol: float) -> list[tuple[float, float]]:
     """
     Calculate the bounds for the parameters.
     """
     load_bounds = [(-1000.0, -tol)]  # Load on x always nonpositive
-    y_bounds = [(vault.height - vault.thickness + tol, vault.height - tol)]
+    y_bounds = [(arch.height - arch.thickness + tol, arch.height - tol)]
     bounds = load_bounds + y_bounds
 
     return bounds
@@ -133,7 +133,7 @@ def constraint_position_fn(
         model: EquilibriumModel,
         structure: EquilibriumStructure) -> jax.Array:
     """
-    The constraint function to ensure the thrust network is within the vault.
+    The constraint function to ensure the thrust network is within the arch.
     """
     # reassemble model
     model = rebuild_model_from_params(params, model)
@@ -148,7 +148,7 @@ def constraint_position_fn(
 
 
 def calculate_constraint_position_bounds(
-        vault,
+        arch: Arch,
         structure: EquilibriumStructure,
         tol: float = 1e-6) -> NonlinearConstraint:
     """
@@ -170,7 +170,7 @@ def calculate_constraint_position_bounds(
         if key == len(structure.nodes) - 1:
             continue
 
-        block = vault.blocks[key]
+        block = arch.blocks[key]
 
         plane_line = block.plane_line()
         start = plane_line.start
@@ -188,7 +188,7 @@ def calculate_constraint_position_bounds(
         # for mu=0.0. Essentially, we were constraining the thrust to be lower
         # than it should be at this mu. So now we don't skip the first block.
         if start.y <= tol:
-            _lb = -vault.height * 50.0
+            _lb = -arch.height * 50.0
 
         lb.append(_lb)
         ub.append(_ub)
@@ -200,7 +200,7 @@ def calculate_constraint_position_bounds(
 
 
 def calculate_constraint_position(
-        vault,
+        arch: Arch,
         model: EquilibriumModel,
         structure: EquilibriumStructure,
         params0: jax.Array,
@@ -214,7 +214,7 @@ def calculate_constraint_position(
     _ = partial_constraint_fn(params0)
 
     # Calculate bounds
-    lb, ub = calculate_constraint_position_bounds(vault, structure, tol)
+    lb, ub = calculate_constraint_position_bounds(arch, structure, tol)
 
     jac_fn = jit(jacfwd(partial_constraint_fn))
 
@@ -241,7 +241,7 @@ def constraint_thrust_fn(
         model: EquilibriumModel,
         structure: EquilibriumStructure) -> jax.Array:
     """
-    The constraint function to ensure the thrust fits within the vault.
+    The constraint function to ensure the thrust fits within the arch.
     """
     # reassemble model
     model = rebuild_model_from_params(params, model)
@@ -268,7 +268,7 @@ def constraint_thrust_fn(
 
 
 def calculate_constraint_thrust(
-        vault,
+        arch: Arch,
         model: EquilibriumModel,
         structure: EquilibriumStructure,
         params0: jax.Array) -> NonlinearConstraint:
@@ -282,7 +282,7 @@ def calculate_constraint_thrust(
 
     # Calculate bounds
     lb = [0.0]
-    ub = [vault.support_width]
+    ub = [arch.support_width]
 
     lb = jnp.array(lb)
     ub = jnp.array(ub)
@@ -312,7 +312,7 @@ def constraint_position_support_fn(
         model: EquilibriumModel,
         structure: EquilibriumStructure) -> jax.Array:
     """
-    The constraint function to ensure the support fits within the vault.
+    The constraint function to ensure the support fits within the arch.
     """
     # reassemble model
     model = rebuild_model_from_params(params, model)
@@ -328,7 +328,7 @@ def constraint_position_support_fn(
 
 
 def calculate_constraint_position_support(
-        vault,
+        arch: Arch,
         model: EquilibriumModel,
         structure: EquilibriumStructure,
         params0: jax.Array) -> NonlinearConstraint:
@@ -342,7 +342,7 @@ def calculate_constraint_position_support(
 
     # Calculate bounds
     lb = [0.0]
-    ub = [vault.support_width]
+    ub = [arch.support_width]
 
     lb = jnp.array(lb)
     ub = jnp.array(ub)
@@ -368,7 +368,7 @@ def calculate_constraint_position_support(
 # ------------------------------------------------------------------------------
 
 def solve_thrust_opt(
-        vault,
+        arch: Arch,
         params0: jax.Array,
         model: EquilibriumModel,
         structure: EquilibriumStructure,
@@ -386,12 +386,12 @@ def solve_thrust_opt(
     _ = value_and_grad_fn(params0, model, structure)
 
     # Generate box constraints
-    bounds = calculate_params_bounds(vault, tol_bounds)
+    bounds = calculate_params_bounds(arch, tol_bounds)
 
     # Generate inequality constraints
-    constraint_position = calculate_constraint_position(vault, model, structure, params0)
-    # constraint_thrust = calculate_constraint_thrust(vault, model, structure, params0)
-    constraint_position_support = calculate_constraint_position_support(vault, model, structure, params0)
+    constraint_position = calculate_constraint_position(arch, model, structure, params0)
+    # constraint_thrust = calculate_constraint_thrust(arch, model, structure, params0)
+    constraint_position_support = calculate_constraint_position_support(arch, model, structure, params0)
 
     constraints = [
         constraint_position,
@@ -433,11 +433,11 @@ def solve_thrust_opt_max(*args, **kwargs) -> FormDiagram:
 
 
 # ------------------------------------------------------------------------------
-# Solvers on vaults
+# Solvers on arches
 # ------------------------------------------------------------------------------
 
-def solve_thrust_minmax_vault(
-        vault: Vault,
+def solve_thrust_minmax_arch(
+        arch: Arch,
         solve_min: bool = True,
         solve_max: bool = True,
         px0: float = -1.0,
@@ -445,10 +445,10 @@ def solve_thrust_minmax_vault(
         tol: float = 1e-6,
         maxiter: int = 100) -> tuple[dict, dict]:
     """
-    Solve the thrust minimization and maximization problems for a given vault geometry.
+    Solve the thrust minimization and maximization problems for a given arch geometry.
     """
     # Instantiate a topology diagram
-    topology = create_topology_from_vault(vault, px0=px0)
+    topology = create_topology_from_arch(arch, px0=px0)
 
     # JAX CEM - form finding
     structure = EquilibriumStructure.from_topology_diagram(topology)
@@ -471,7 +471,7 @@ def solve_thrust_minmax_vault(
 
         print(f"\n***** Solving for {solve_fn_name} solution *****\n")
         result = solve_fn(
-            vault,
+            arch,
             params0,
             model,
             structure,
@@ -488,11 +488,11 @@ def solve_thrust_minmax_vault(
         network = create_thrust_network_from_opt_result(result, model, structure)
 
         # Check results
-        test_thrust_opt_result(network, vault, result)
+        test_thrust_opt_result(network, arch, result)
         networks[solve_fn_name] = network
 
         # Stats
-        sw = vault.weight()
+        sw = arch.weight()
         thrust = network.thrust()
 
         print(f"SW (Vertical load sum): {sw:.2f}")
@@ -531,7 +531,7 @@ def create_thrust_network_from_opt_result(
 # Tests
 # ------------------------------------------------------------------------------
 
-def test_thrust_opt_result(network: ThrustNetwork, vault, result: OptimizeResult) -> None:
+def test_thrust_opt_result(network: ThrustNetwork, arch: Arch, result: OptimizeResult) -> None:
     """
     Check the optimization result.
     """
@@ -543,7 +543,7 @@ def test_thrust_opt_result(network: ThrustNetwork, vault, result: OptimizeResult
     assert jnp.allclose(thrust, fabs(result.fun)), msg
 
     # Check self weights match
-    sw = vault.weight()
+    sw = arch.weight()
     sw_network = network.weight()
     msg = f"The vertical load sum is not equal to the vertical reaction at the support ({sw_network:.2f} != {sw:.2f})"
     assert jnp.allclose(sw_network, sw), msg

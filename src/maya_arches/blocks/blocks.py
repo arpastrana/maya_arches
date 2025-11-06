@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from compas.geometry import Polygon
 from compas.geometry import Point
 from compas.geometry import Line
@@ -12,10 +14,13 @@ from compas.geometry import distance_point_point
 from compas.geometry import allclose
 from compas.utilities import pairwise
 
-from maya_arches.blocks.slicing import slice_vault
-from maya_arches.blocks.slicing import create_slice_planes_by_block_horizontal
-from maya_arches.blocks.slicing import create_slice_planes_by_block_vertical
-from maya_arches.blocks.slicing import create_slice_planes_vertical
+from maya_arches.blocks import slice_arch
+from maya_arches.blocks import create_slice_planes_by_block_horizontal
+from maya_arches.blocks import create_slice_planes_by_block_vertical
+from maya_arches.blocks import create_slice_planes_vertical
+
+if TYPE_CHECKING:
+    from maya_arches.arches import Arch
 
 
 # ------------------------------------------------------------------------------
@@ -135,13 +140,13 @@ class Block:
 # Block factory
 # ------------------------------------------------------------------------------
 
-def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -> list[Block]:
+def create_blocks(arch: "Arch", num_blocks: int, density: float, slicing_method: int) -> dict[int, Block]:
     """
-    Create blocks from a given vault geometry.
+    Create blocks from a given arch geometry.
 
     Notes
     -----
-    The blocks are generated from the ground up by slicing the vault into 
+    The blocks are generated from the ground up by slicing the arch into 
     a prescribed number of blocks.
 
     The slicing method one of:
@@ -153,23 +158,23 @@ def create_blocks(vault, num_blocks: int, density: float, slicing_method: int) -
     num_planes = num_blocks + 1
 
     if slicing_method == 0:
-        planes = create_slice_planes_by_block_horizontal(vault, num_planes)    
+        planes = create_slice_planes_by_block_horizontal(arch, num_planes)    
     elif slicing_method == 1:
-        planes = create_slice_planes_by_block_vertical(vault, num_planes)
+        planes = create_slice_planes_by_block_vertical(arch, num_planes)
     elif slicing_method == 2:
-        planes = create_slice_planes_vertical(vault, num_planes)
+        planes = create_slice_planes_vertical(arch, num_planes)
     else:
         raise ValueError(f"Invalid slicing method id: {slicing_method}")
 
-    # Slice the vault to create lines
-    slice_lines = slice_vault(vault, planes)
+    # Slice the arc to create lines
+    slice_lines = slice_arch(arch, planes)
 
     # Check slice lengths
     for i, line in enumerate(slice_lines):
         if slicing_method == 0:
-            assert line.length <= vault.width / 2.0
+            assert line.length <= arch.width / 2.0
         elif slicing_method == 1:
-            assert line.length <= vault.height
+            assert line.length <= arch.height
 
     # Create blocks from slice lines
     blocks = []
