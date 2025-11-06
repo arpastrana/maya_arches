@@ -2,7 +2,7 @@ from compas.geometry import Polygon
 from compas.geometry import Point
 from compas.geometry import Line
 from compas.geometry import Plane
-# from compas.geometry import centroid_polygon
+from compas.geometry import centroid_polygon
 from compas.geometry import centroid_points
 from compas.geometry import cross_vectors
 from compas.geometry import add_vectors
@@ -60,8 +60,8 @@ class Block:
         """
         The centroid of the block.
         """
-        # return centroid_polygon(self.points())
-        return centroid_points(self.points())
+        return centroid_polygon(self.points())
+        # return centroid_points(self.points())
 
     def plane(self) -> Plane:
         """
