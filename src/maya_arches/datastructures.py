@@ -18,13 +18,13 @@ from maya_arches.arches.arch import Arch
 # Instantiate a topology diagram
 # ------------------------------------------------------------------------------
 
-def create_topology_from_arch(arch: Arch, px0: float = -1.0) -> TopologyDiagram:
+def create_topology_from_arch(arch: Arch, px0: float = -1.0, y0: float = None) -> TopologyDiagram:
     """
     Create a topology diagram with nodes, loads, trail edges and supports from an arch.
     """
     topology = TopologyDiagram()
 
-    node_keys = add_nodes(topology, arch)
+    node_keys = add_nodes(topology, arch, y0)
     add_loads(topology, arch, node_keys, px0)
     add_supports(topology, node_keys)
     add_trail_edges(topology, node_keys, arch)
@@ -38,7 +38,7 @@ def create_topology_from_arch(arch: Arch, px0: float = -1.0) -> TopologyDiagram:
 # Add Nodes
 # ------------------------------------------------------------------------------
 
-def add_nodes(topology: TopologyDiagram, arch: Arch) -> list[int]:
+def add_nodes(topology: TopologyDiagram, arch: Arch, y0: float = None) -> list[int]:
     """
     Add nodes to the topology diagram.
 
@@ -51,16 +51,13 @@ def add_nodes(topology: TopologyDiagram, arch: Arch) -> list[int]:
     num_nodes_extra = 2
     num_nodes = len(arch.blocks) + num_nodes_extra
 
+    if y0 is None:
+        y0 = arch.height - arch.thickness * 0.5
+
     node_keys = []
     for i in range(num_nodes):
         factor = 1.0 - i / (num_nodes - 1)
-        point = [
-            factor * arch.width * 0.5,
-            arch.height - arch.thickness * 0.5,
-            # arch.height,
-            # arch.height - arch.thickness,
-            0.0
-            ]
+        point = [factor * arch.width * 0.5, y0, 0.0]
         key = topology.add_node(Node(i, point))
         node_keys.append(key)
 

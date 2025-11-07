@@ -3,8 +3,8 @@ arch:
   height: 5.0
   width: 4.0
   lintel_height: 0.5  # 0.5
-  wall_height: 2.25  # 2.25 (mu=1/2)
-  wall_width: 0.5  # 0.5 (lambda=1/6), 2/3 or 0.67 (lambda=1/4), 0.8 (lambda=1/3), 1.0 (lambda=1/2), 1.25 (reference)
+  wall_height: 0.0  # 2.25 (mu=1/2)
+  wall_width: 0.67 # 0.5 (lambda=1/6), 2/3 or 0.67 (lambda=1/4), 0.8 (lambda=1/3), 1.0 (lambda=1/2), 1.25 (reference)
   num_blocks: 50  # 50
   slicing_method: 1  # 0: block horizontal, 1: block vertical, 2: linear range vertical
   block_density: 1.0
@@ -20,7 +20,8 @@ optimization:
   solve_min: True
   solve_max: True
   px0: -1.0
-  tol_bounds: 1.0e-3  # origin node height tolerance on bounds for numerical stability (no zero length segments)
+  y0: 4.5
+  tol_bounds: 1.0e-3  # 1.0e-3 origin node height tolerance on bounds for numerical stability (no zero length segments)
   tol: 1.0e-6  # tolerance for optimization convergence
   maxiter: 100  # maximum number of optimization steps
 

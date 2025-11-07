@@ -54,7 +54,7 @@ def run_tna_experiment():
     plot_thrust_minmax_arch(arch, networks, **config["plotting"])
 
     # Export results
-    # export_networks(arch, networks, **config["export"])
+    export_networks(arch, networks, **config["export"])
 
 
 def find_arch_type(arch_config: dict) -> type[Arch]:
@@ -73,12 +73,12 @@ def find_arch_type(arch_config: dict) -> type[Arch]:
         raise ValueError(f"Arch type {arch_config['type']} not supported")
 
 
-def calculate_thrust_network(arch: Arch, check_constraint: bool = False) -> ThrustNetwork:
+def calculate_thrust_network(arch: Arch, px0: float = -1.0, y0: float = None, check_constraint: bool = False) -> ThrustNetwork:
     """
     Calculate the thrust network for a given arch.
     """
     # Instantiate a topology diagram
-    topology = create_topology_from_arch(arch, px0=-1.0)
+    topology = create_topology_from_arch(arch, px0=px0, y0=y0)
     # topology = create_topology_from_arch(arch, px0=-0.16)
     # topology = create_topology_from_arch(arch, px0=-0.25)
     # topology = create_topology_from_arch(arch, px0=-2.0)
@@ -122,19 +122,24 @@ def plot_thrust_network(arch: Arch, network: ThrustNetwork, config: dict):
     """
     plotter = ArchPlotter(figsize=(8, 8))
 
-    plotter.plot_arch(arch, plot_other_half=True)    
-    plotter.plot_arch_blocks(arch)
-    plotter.plot_arch_blocks_lines(arch)
-    
+    plotter.plot_arch(arch, plot_other_half=True)
+
+    if config["plot_blocks"]:
+        plotter.plot_arch_blocks(arch)
+    if config["plot_blocks_lines"]:
+        plotter.plot_arch_blocks_lines(arch)
+
     plotter.zoom_extents()
 
     plotter.plot_thrust_network(network, linewidth=config["thrust_linewidth"])
 
-    # fig_path = os.path.join(FIGURES, f"thrust_network_blocks_horizontal.pdf")
-    # plotter.save(fig_path, transparent=True, bbox_inches="tight")
-    # print(f"\nSaved figure to {fig_path}")
+    if config["save_plot"]:
+        fig_path = os.path.join(FIGURES, f"thrust_network_vertices.pdf")
+        plotter.save(fig_path, transparent=True, bbox_inches="tight")
+        print(f"\nSaved figure to {fig_path}")
 
-    plotter.show()
+    if config["show_plot"]:
+        plotter.show()
 
 
 def export_networks(arch: Arch, networks: dict[str, ThrustNetwork], **config: dict):

@@ -335,8 +335,8 @@ if plot_y_hlines:
         ax.axhline(y=params[1], color="black", linewidth=1.2, linestyle="dotted")
 
 # Labels
-ax.set_xlabel(r'$-p_{x}$')
-ax.set_ylabel(r'$y$')
+ax.set_xlabel(r'$-p_1$')
+ax.set_ylabel(r'$y_1$')
 
 # Ticks
 if xticks is not None:

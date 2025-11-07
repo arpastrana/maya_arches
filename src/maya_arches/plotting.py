@@ -79,8 +79,10 @@ class ArchPlotter(Plotter):
             # val = 1.0 - val            
             self.add(
                 block.polygon(),
-                linewidth=1.0,
-                edgecolor=Color.grey(),
+                linewidth=0.75,
+                edgecolor=Color.black(),
+                # linewidth=1.0,
+                # edgecolor=Color.grey(),
                 # facecolor=Color(val, val, 0.5),
                 # facecolor=Color(val, val, val),
                 alpha=0.5,
@@ -95,9 +97,12 @@ class ArchPlotter(Plotter):
             self.add(
                 block.plane_line(),
                 draw_as_segment=True,
-                linestyle="dashed",
-                color=Color.from_rgb255(240, 240, 240),
-                linewidth=1.0,
+                # linestyle="dashed",
+                # color=Color.from_rgb255(240, 240, 240),
+                linestyle=(0, (8, 3)),
+                color=Color.black(),
+                # linewidth=1.0,
+                linewidth=0.5,
                 zorder=100
             )
 
@@ -383,7 +388,6 @@ def plot_thrust_minmax_arch(
 
     for loss_fn_name, network in networks.items():        
         linestyle = "solid" if loss_fn_name == "max" else "dashed"
-        # linestyle = "solid"
         color_blue = Color.from_rgb255(12, 119, 184)
         color_blue_dark = color_blue.darkened(20)
         color = color_blue_dark if loss_fn_name == "max" else color_blue

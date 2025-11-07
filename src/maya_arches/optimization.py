@@ -441,14 +441,15 @@ def solve_thrust_minmax_arch(
         solve_min: bool = True,
         solve_max: bool = True,
         px0: float = -1.0,
+        y0: float = None,
         tol_bounds: float = 1e-3,
         tol: float = 1e-6,
-        maxiter: int = 100) -> tuple[dict, dict]:
+        maxiter: int = 100) -> tuple[dict[str, ThrustNetwork], dict[str, dict[str, float]]]:
     """
     Solve the thrust minimization and maximization problems for a given arch geometry.
     """
     # Instantiate a topology diagram
-    topology = create_topology_from_arch(arch, px0=px0)
+    topology = create_topology_from_arch(arch, px0=px0, y0=y0)
 
     # JAX CEM - form finding
     structure = EquilibriumStructure.from_topology_diagram(topology)
@@ -501,7 +502,8 @@ def solve_thrust_minmax_arch(
 
         results[solve_fn_name] = {
             "thrust": thrust,
-            "sw": sw
+            "sw": sw,
+            "y": network.node_coordinates(0)[1]
         }
 
     return networks, results
